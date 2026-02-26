@@ -1,0 +1,22 @@
+# ポケモンカード デッキスクレイピング API 実装タスク
+
+- [x] パッケージのインストール
+  - [x] `cheerio` (HTMLパース用)
+  - [x] `@vercel/node` (Vercel API用 型定義)
+  - [x] `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/jest-dom` (テスト環境)
+- [x] テスト環境(Vitest)のセットアップ
+  - [x] `vite.config.ts` にテスト設定を追記、または `vitest.config.ts` を作成
+  - [x] `package.json` に `"test": "vitest"` スクリプトを追加
+- [/] スクレイピングモジュールの実装
+  - [/] `src/lib/pokemon-tcg/deck-scraper.ts` 作成
+  - [ ] 対象URL（`https://www.pokemon-card.com/deck/deck.html?deckID={deckCode}`）の取得処理
+  - [ ] 取得したHTMLからカードリスト（ID、名前、枚数、画像URL等）を抽出するロジックの実装
+  - [ ] `src/lib/pokemon-tcg/deck-scraper.test.ts` でVitestによる単体テストを実装
+- [ ] バックエンドAPIモジュールの実装
+  - [ ] Vercel Serverless Functions 用の `api/getDeck.ts` を作成
+  - [ ] `?code={deckCode}` を受け取り、スクレイピングモジュールを呼び出す処理
+  - [ ] 結果をJSONで返す処理
+- [ ] ローカル環境でのテスト・検証
+  - [ ] `npm run test` コマンドでテストがパスすることを確認
+  - [ ] 適当なデッキコードを使って取得ができるか確認
+- [ ] （オプション）ユーザーへのWalkthrough作成

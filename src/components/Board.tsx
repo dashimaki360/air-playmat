@@ -66,6 +66,13 @@ export function Board() {
                         updateCardStatus(activeData.card.id, (c) => ({ ...c, f: true }));
                     }, 0);
                 }
+
+                // もしDeckへ移動した場合は自動的に裏向き（f = false）にする
+                if (targetAreaId === 'deck') {
+                    setTimeout(() => {
+                        updateCardStatus(activeData.card.id, (c) => ({ ...c, f: false }));
+                    }, 0);
+                }
             }
         }
     };
