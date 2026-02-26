@@ -5,7 +5,7 @@ describe('deck-scraper', () => {
   it('should get a deck list correctly from a valid deck code', async () => {
     // 実際に存在するデッキコードでテスト（時間がかかるためテスト実行時は注意）
     // 大会結果などから確認できる適当なデッキコード
-    const testCode = 'kVvkkv-69A7Uu-kdfv11';
+    const testCode = 'Y888cD-AzhZEz-Y8G4xc';
     
     try {
         const deck = await getDeckList(testCode);
