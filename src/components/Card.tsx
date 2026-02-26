@@ -44,13 +44,13 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
         : undefined;
 
     const handleToggleFaceUp = () => {
-        onUpdateStatus(card.id, (c) => ({ ...c, face: !c.face }));
+        onUpdateStatus(card.id, (c) => ({ ...c, f: !c.f }));
     };
 
     const handleAddDamage = (amount: number) => {
         onUpdateStatus(card.id, (c) => ({
             ...c,
-            dmg: Math.max(0, c.dmg + amount),
+            d: Math.max(0, c.d + amount),
         }));
     };
 
@@ -72,13 +72,13 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
                 {...attributes}
                 className={`w-20 h-28 sm:w-24 sm:h-32 md:w-32 md:h-44 rounded-lg shadow-md border-2 overflow-hidden bg-slate-200 cursor-grab active:cursor-grabbing flex flex-col justify-between
           ${isDragging ? 'opacity-50 ring-4 ring-blue-500 border-blue-500' : 'border-slate-800'}
-          ${!card.face ? 'bg-gradient-to-br from-blue-700 to-indigo-900 border-blue-400' : ''}`}
+          ${!card.f ? 'bg-gradient-to-br from-blue-700 to-indigo-900 border-blue-400' : ''}`}
                 onClick={(e) => {
                     e.stopPropagation();
                     setMenuOpen(!menuOpen);
                 }}
             >
-                {card.face ? (
+                {card.f ? (
                     <div className="p-1 h-full flex flex-col justify-between text-slate-900 bg-white">
                         <div className="font-bold text-xs truncate">{card.name || 'Card'}</div>
                         {/* Status Icons */}
@@ -93,9 +93,9 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
                             })}
                         </div>
                         {/* Damage Counters */}
-                        {card.dmg > 0 && (
+                        {card.d > 0 && (
                             <div className="bg-red-600 text-white font-bold text-xs rounded-full min-w-5 px-1 py-0.5 text-center mt-auto self-end">
-                                {card.dmg}
+                                {card.d}
                             </div>
                         )}
                     </div>
@@ -110,7 +110,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
 
             {menuOpen && (
                 <CardMenu
-                    isFaceUp={card.face}
+                    isFaceUp={card.f}
                     onToggleFaceUp={handleToggleFaceUp}
                     onAddDamage={handleAddDamage}
                     onToggleStatus={handleToggleStatus}

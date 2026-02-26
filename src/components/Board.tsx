@@ -46,17 +46,24 @@ export function Board() {
 
             // Move card
             if (activeData.sourceArea !== targetAreaId) {
-                const sourceLoc = `${activeData.playerId}-${activeData.sourceArea}`;
-                const targetLoc = `${activeData.playerId}-${targetAreaId}`;
+                // Convert "player-1" to "p1" for location keys
+                const pPrefix = activeData.playerId === 'player-1' ? 'p1' : 'p2';
+                
+                const sourceLoc = activeData.sourceArea === 'stadium' 
+                    ? 'stadium' 
+                    : `${pPrefix}-${activeData.sourceArea}`;
+                const targetLoc = targetAreaId === 'stadium' 
+                    ? 'stadium' 
+                    : `${pPrefix}-${targetAreaId}`;
                 
                 // Active or Stadium generally only has 1 card
                 moveCard(activeData.card.id, sourceLoc, targetLoc);
 
-                // もしHandへ移動した場合は自動的に表向き（face = true）にする
+                // もしHandへ移動した場合は自動的に表向き（f = true）にする
                 if (targetAreaId === 'hand') {
                     // Update the state slightly after move completes
                     setTimeout(() => {
-                        updateCardStatus(activeData.card.id, (c) => ({ ...c, face: true }));
+                        updateCardStatus(activeData.card.id, (c) => ({ ...c, f: true }));
                     }, 0);
                 }
             }
@@ -64,7 +71,7 @@ export function Board() {
     };
 
     // Safe check if player exists
-    const p1 = gameState.players['player-1'];
+    const p1 = gameState.p1;
     if (!p1) return <div className="text-white">Loading...</div>;
 
     const renderCard = (card: CardType, area: AreaId, index?: number) => (
@@ -123,13 +130,13 @@ export function Board() {
 
                 {/* Opponent Area (Player 2) */}
                 {(() => {
-                    const p2 = gameState.players['player-2'];
+                    const p2 = gameState.p2;
                     if (!p2) return null;
                     const p2Active = getCardsByLocation('p2-active')[0];
                     return (
                         <div className="flex flex-col gap-4 p-4 rounded-xl border border-red-900/50 bg-red-950/20">
                             <div className="text-red-400 font-bold mb-2 text-center border-b border-red-900/50 pb-2">
-                                {p2.name}
+                                {p2.n}
                             </div>
 
                             {/* Opponent Hand (Hidden usually, roughly showing count) */}

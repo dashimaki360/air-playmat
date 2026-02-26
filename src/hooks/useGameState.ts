@@ -1,23 +1,26 @@
 import { useState } from 'react';
-import type { GameState, Card } from '../types/game';
+import type { GameState, Card, PlayerState } from '../types/game';
 
 // Utility to generate a basic mock card with loc and ord
-const createMockCard = (id: string, name: string, loc: string, ord: number = 0): Card => ({
+const createMockCard = (id: string, name: string, l: string, o: number = 0): Card => ({
     id,
     tId: 'mock-template',
-    face: true,
-    dmg: 0,
+    f: true,
+    d: 0,
     cnd: [],
     name,
-    loc,
-    ord,
+    l,
+    o,
 });
 
-const generateInitialCards = (): Record<string, Card> => {
-    const cards: Record<string, Card> = {};
+const generateInitialPlayer1 = (): PlayerState => {
+    const p1: PlayerState = {
+        n: 'Player 1',
+        d: [],
+        c: {},
+    };
 
-    // Helper to add card to the map
-    const add = (c: Card) => { cards[c.id] = c; };
+    const add = (c: Card) => { p1.c[c.id] = c; };
 
     // Player 1 Hand (7)
     add(createMockCard('p1-hand-1', 'Pikachu', 'p1-hand', 0));
@@ -30,7 +33,9 @@ const generateInitialCards = (): Record<string, Card> => {
 
     // Player 1 Deck (44)
     for (let i = 0; i < 44; i++) {
-        add({ ...createMockCard(`p1-deck-${i + 1}`, `Deck Card ${i + 1}`, 'p1-deck', i), face: false });
+        const id = `p1-deck-${i + 1}`;
+        p1.d.push(id);
+        add({ ...createMockCard(id, `Deck Card ${i + 1}`, 'p1-deck', i), f: false });
     }
 
     // Player 1 Active (1), Bench (2), Prize (6)
@@ -38,8 +43,20 @@ const generateInitialCards = (): Record<string, Card> => {
     add(createMockCard('p1-bench-1', 'Charmander', 'p1-bench', 0));
     add(createMockCard('p1-bench-2', 'Bulbasaur', 'p1-bench', 1));
     for (let i = 0; i < 6; i++) {
-        add({ ...createMockCard(`p1-prize-${i + 1}`, `Prize ${i + 1}`, 'p1-prize', i), face: false });
+        add({ ...createMockCard(`p1-prize-${i + 1}`, `Prize ${i + 1}`, 'p1-prize', i), f: false });
     }
+
+    return p1;
+};
+
+const generateInitialPlayer2 = (): PlayerState => {
+    const p2: PlayerState = {
+        n: 'Player 2 (Opponent)',
+        d: [],
+        c: {},
+    };
+
+    const add = (c: Card) => { p2.c[c.id] = c; };
 
     // Player 2 Hand (4), Deck (47), Active (1), Bench (1), Prize (6)
     add(createMockCard('p2-hand-1', 'Eevee', 'p2-hand', 0));
@@ -47,24 +64,28 @@ const generateInitialCards = (): Record<string, Card> => {
     add(createMockCard('p2-hand-3', 'Great Ball', 'p2-hand', 2));
     add(createMockCard('p2-hand-4', 'Fire Energy', 'p2-hand', 3));
     for (let i = 0; i < 47; i++) {
-        add({ ...createMockCard(`p2-deck-${i + 1}`, `P2 Deck Card ${i + 1}`, 'p2-deck', i), face: false });
+        const id = `p2-deck-${i + 1}`;
+        p2.d.push(id);
+        add({ ...createMockCard(id, `P2 Deck Card ${i + 1}`, 'p2-deck', i), f: false });
     }
     add(createMockCard('p2-active-1', 'Blastoise', 'p2-active', 0));
     add(createMockCard('p2-bench-1', 'Meowth', 'p2-bench', 0));
     for (let i = 0; i < 6; i++) {
-        add({ ...createMockCard(`p2-prize-${i + 1}`, `P2 Prize ${i + 1}`, 'p2-prize', i), face: false });
+        add({ ...createMockCard(`p2-prize-${i + 1}`, `P2 Prize ${i + 1}`, 'p2-prize', i), f: false });
     }
 
-    return cards;
+    return p2;
 };
 
 const initialMockState: GameState = {
     roomId: 'mock-room-1',
-    players: {
-        'player-1': { name: 'Player 1' },
-        'player-2': { name: 'Player 2 (Opponent)' },
+    m: {
+        t: 'p1',
+        s: 'playing',
+        a: '',
     },
-    cards: generateInitialCards(),
+    p1: generateInitialPlayer1(),
+    p2: generateInitialPlayer2(),
 };
 
 export function useGameState() {
@@ -72,9 +93,13 @@ export function useGameState() {
 
     // Get cards grouped/sorted by location for easy UI rendering
     const getCardsByLocation = (loc: string): Card[] => {
-        return Object.values(gameState.cards)
-            .filter(c => c.loc === loc)
-            .sort((a, b) => a.ord - b.ord);
+        const allCards = [
+            ...Object.values(gameState.p1.c),
+            ...Object.values(gameState.p2.c)
+        ];
+        return allCards
+            .filter(c => c.l === loc)
+            .sort((a, b) => a.o - b.o);
     };
 
     const moveCard = (
@@ -84,31 +109,57 @@ export function useGameState() {
         targetIndex?: number
     ) => {
         setGameState((prev) => {
-            const newState = { ...prev, cards: { ...prev.cards } };
-            const cardToMove = newState.cards[cardId];
-            if (!cardToMove) return prev;
+            const newState = { ...prev };
+            
+            // Determine which player owns the card
+            let pPlayer = 'p1';
+            if (prev.p2.c[cardId]) pPlayer = 'p2';
+            else if (!prev.p1.c[cardId]) return prev;
+
+            const targetPlayerObj = pPlayer as 'p1' | 'p2';
+            
+            newState[targetPlayerObj] = {
+                ...prev[targetPlayerObj],
+                c: { ...prev[targetPlayerObj].c },
+                d: [...prev[targetPlayerObj].d]
+            };
+            
+            const pState = newState[targetPlayerObj];
+            const cardToMove = pState.c[cardId];
 
             // Optional: スワップロジックの適応（Activeに既にカードがある場合、元の配置に戻す）
             if (targetLoc.includes('-active')) {
-                const existingActive = Object.values(newState.cards).find(c => c.loc === targetLoc);
+                const existingActive = Object.values(pState.c).find(c => c.l === targetLoc);
                 if (existingActive && existingActive.id !== cardId) {
-                    newState.cards[existingActive.id] = {
+                    pState.c[existingActive.id] = {
                         ...existingActive,
-                        loc: sourceLoc, // 元の場所に押し戻す
-                        ord: 999 // ひとまず末尾へ
+                        l: sourceLoc, // 元の場所に押し戻す
+                        o: 999 // ひとまず末尾へ
                     };
                 }
             }
 
             // カードの移動先とOrderを更新
-            // ※本来は配列のようにtargetIndexに挿入するためのOrder再計算が必要ですが、一旦簡易的に末尾移動としています
-            const targetCards = Object.values(newState.cards).filter(c => c.loc === targetLoc);
+            const targetCards = Object.values(pState.c).filter(c => c.l === targetLoc);
             const newOrder = targetIndex !== undefined ? targetIndex : targetCards.length;
 
-            newState.cards[cardId] = {
+            pState.c[cardId] = {
                 ...cardToMove,
-                loc: targetLoc,
-                ord: newOrder
+                l: targetLoc,
+                o: newOrder
+            };
+
+            // 山札配列の調整処理
+            if (sourceLoc.includes('-deck')) {
+                pState.d = pState.d.filter(id => id !== cardId);
+            }
+            if (targetLoc.includes('-deck')) {
+                pState.d.push(cardId);
+            }
+
+            newState.m = {
+                ...prev.m,
+                a: `${pPlayer}-move-${cardId}`
             };
 
             return newState;
@@ -117,10 +168,19 @@ export function useGameState() {
 
     const updateCardStatus = (cardId: string, updater: (c: Card) => Card) => {
         setGameState((prev) => {
-            if (!prev.cards[cardId]) return prev;
+            let pPlayer = 'p1';
+            if (prev.p2.c[cardId]) pPlayer = 'p2';
+            else if (!prev.p1.c[cardId]) return prev;
+
+            const targetPlayer = pPlayer as 'p1' | 'p2';
+            const newState = { ...prev };
             
-            const newState = { ...prev, cards: { ...prev.cards } };
-            newState.cards[cardId] = updater(newState.cards[cardId]);
+            newState[targetPlayer] = {
+                ...newState[targetPlayer],
+                c: { ...newState[targetPlayer].c }
+            };
+            
+            newState[targetPlayer].c[cardId] = updater(newState[targetPlayer].c[cardId]);
             return newState;
         });
     };
