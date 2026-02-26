@@ -38,12 +38,20 @@ export function CardMenu({
 
             <div className="border-t border-slate-600 my-1 pt-1">
                 <div className="text-xs text-slate-400 mb-1">ダメージ</div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 mb-1">
                     <button onClick={() => onAddDamage(10)} className="flex-1 p-1 bg-slate-700 hover:bg-slate-600 rounded flex items-center justify-center gap-1">
                         <Plus size={14} /> 10
                     </button>
                     <button onClick={() => onAddDamage(-10)} className="flex-1 p-1 bg-slate-700 hover:bg-slate-600 rounded flex items-center justify-center gap-1">
                         <Minus size={14} /> 10
+                    </button>
+                </div>
+                <div className="flex gap-1">
+                    <button onClick={() => onAddDamage(50)} className="flex-1 p-1 bg-slate-700 hover:bg-slate-600 rounded flex items-center justify-center gap-1">
+                        <Plus size={14} /> 50
+                    </button>
+                    <button onClick={() => onAddDamage(-50)} className="flex-1 p-1 bg-slate-700 hover:bg-slate-600 rounded flex items-center justify-center gap-1">
+                        <Minus size={14} /> 50
                     </button>
                 </div>
             </div>

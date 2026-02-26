@@ -94,7 +94,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
                         </div>
                         {/* Damage Counters */}
                         {card.d > 0 && (
-                            <div className="bg-red-600 text-white font-bold text-xs rounded-full min-w-5 px-1 py-0.5 text-center mt-auto self-end">
+                            <div className="bg-red-600 text-white font-bold text-base rounded-full min-w-6 px-1.5 py-0.5 text-center mt-auto self-end shadow-sm border border-red-800">
                                 {card.d}
                             </div>
                         )}
