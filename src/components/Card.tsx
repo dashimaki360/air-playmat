@@ -43,10 +43,6 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
         }
         : undefined;
 
-    const handleToggleFaceUp = () => {
-        onUpdateStatus(card.id, (c) => ({ ...c, f: !c.f }));
-    };
-
     const handleAddDamage = (amount: number) => {
         onUpdateStatus(card.id, (c) => ({
             ...c,
@@ -111,8 +107,6 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
             {menuOpen && (
                 <CardMenu
                     area={area}
-                    isFaceUp={card.f}
-                    onToggleFaceUp={handleToggleFaceUp}
                     onAddDamage={handleAddDamage}
                     onToggleStatus={handleToggleStatus}
                     currentStatus={card.cnd}

@@ -4,8 +4,6 @@ import type { CardStatusCondition, AreaId } from '../types/game';
 
 interface CardMenuProps {
     area: AreaId;
-    isFaceUp: boolean;
-    onToggleFaceUp: () => void;
     onAddDamage: (amount: number) => void;
     onToggleStatus: (status: CardStatusCondition) => void;
     currentStatus: CardStatusCondition[];
@@ -13,8 +11,6 @@ interface CardMenuProps {
 
 export function CardMenu({
     area,
-    isFaceUp,
-    onToggleFaceUp,
     onAddDamage,
     onToggleStatus,
     currentStatus,
@@ -28,15 +24,7 @@ export function CardMenu({
             onClick={stopProp}
             onPointerDown={stopProp}
         >
-            <button
-                onClick={onToggleFaceUp}
-                className="flex items-center gap-2 p-1 hover:bg-slate-700 rounded w-full text-left"
-            >
-                <RefreshCcw size={16} />
-                {isFaceUp ? '裏にする' : '表にする'}
-            </button>
-
-            <div className="border-t border-slate-600 my-1 pt-1">
+            <div className="border-t border-slate-600 mb-1 pb-1 pt-1 first:border-t-0 first:pt-0">
                 <div className="text-xs text-slate-400 mb-1">ダメージ</div>
                 <div className="flex gap-1 mb-1">
                     <button onClick={() => onAddDamage(10)} className="flex-1 p-1 bg-slate-700 hover:bg-slate-600 rounded flex items-center justify-center gap-1">
