@@ -1,8 +1,9 @@
 import React from 'react';
 import { RefreshCcw, Plus, Minus, Skull, Flame, Moon, Zap, HelpCircle } from 'lucide-react';
-import type { CardStatusCondition } from '../types/game';
+import type { CardStatusCondition, AreaId } from '../types/game';
 
 interface CardMenuProps {
+    area: AreaId;
     isFaceUp: boolean;
     onToggleFaceUp: () => void;
     onAddDamage: (amount: number) => void;
@@ -11,6 +12,7 @@ interface CardMenuProps {
 }
 
 export function CardMenu({
+    area,
     isFaceUp,
     onToggleFaceUp,
     onAddDamage,
@@ -46,31 +48,33 @@ export function CardMenu({
                 </div>
             </div>
 
-            <div className="border-t border-slate-600 my-1 pt-1">
-                <div className="text-xs text-slate-400 mb-1">状態異常</div>
-                <div className="flex flex-wrap gap-1">
-                    {[
-                        { id: 'poison', icon: Skull, label: 'どく' },
-                        { id: 'burn', icon: Flame, label: 'やけど' },
-                        { id: 'asleep', icon: Moon, label: 'ねむり' },
-                        { id: 'paralyzed', icon: Zap, label: 'マヒ' },
-                        { id: 'confused', icon: HelpCircle, label: 'こんらん' },
-                    ].map(({ id, icon: Icon, label }) => {
-                        const isActive = currentStatus.includes(id as CardStatusCondition);
-                        return (
-                            <button
-                                key={id}
-                                onClick={() => onToggleStatus(id as CardStatusCondition)}
-                                title={label}
-                                className={`p-1.5 rounded ${isActive ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                                    }`}
-                            >
-                                <Icon size={14} />
-                            </button>
-                        );
-                    })}
+            {area !== 'bench' && (
+                <div className="border-t border-slate-600 my-1 pt-1">
+                    <div className="text-xs text-slate-400 mb-1">状態異常</div>
+                    <div className="flex flex-wrap gap-1">
+                        {[
+                            { id: 'poison', icon: Skull, label: 'どく' },
+                            { id: 'burn', icon: Flame, label: 'やけど' },
+                            { id: 'asleep', icon: Moon, label: 'ねむり' },
+                            { id: 'paralyzed', icon: Zap, label: 'マヒ' },
+                            { id: 'confused', icon: HelpCircle, label: 'こんらん' },
+                        ].map(({ id, icon: Icon, label }) => {
+                            const isActive = currentStatus.includes(id as CardStatusCondition);
+                            return (
+                                <button
+                                    key={id}
+                                    onClick={() => onToggleStatus(id as CardStatusCondition)}
+                                    title={label}
+                                    className={`p-1.5 rounded ${isActive ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                                        }`}
+                                >
+                                    <Icon size={14} />
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

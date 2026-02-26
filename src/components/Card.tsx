@@ -110,6 +110,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
 
             {menuOpen && (
                 <CardMenu
+                    area={area}
                     isFaceUp={card.f}
                     onToggleFaceUp={handleToggleFaceUp}
                     onAddDamage={handleAddDamage}
