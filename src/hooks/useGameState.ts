@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { GameState, Card, PlayerState } from '../types/game';
 
+import defaultDeck from '../data/defaultDeck.json';
+
 // Utility to generate a basic mock card with loc and ord
-const createMockCard = (id: string, name: string, l: string, o: number = 0): Card => ({
+const createMockCard = (id: string, name: string, l: string, o: number = 0, imageUrl?: string): Card => ({
     id,
     tId: 'mock-template',
     f: true,
@@ -11,70 +13,85 @@ const createMockCard = (id: string, name: string, l: string, o: number = 0): Car
     name,
     l,
     o,
+    imageUrl,
 });
 
-const generateInitialPlayer1 = (): PlayerState => {
-    const p1: PlayerState = {
-        n: 'Player 1',
-        d: [],
-        c: {},
-    };
-
-    const add = (c: Card) => { p1.c[c.id] = c; };
-
-    // Player 1 Hand (7)
-    add(createMockCard('p1-hand-1', 'Pikachu', 'p1-hand', 0));
-    add(createMockCard('p1-hand-2', 'Potion', 'p1-hand', 1));
-    add(createMockCard('p1-hand-3', 'Professor Oak', 'p1-hand', 2));
-    add(createMockCard('p1-hand-4', 'Water Energy', 'p1-hand', 3));
-    add(createMockCard('p1-hand-5', 'Water Energy', 'p1-hand', 4));
-    add(createMockCard('p1-hand-6', 'Water Energy', 'p1-hand', 5));
-    add(createMockCard('p1-hand-7', 'Pokeball', 'p1-hand', 6));
-
-    // Player 1 Deck (44)
-    for (let i = 0; i < 44; i++) {
-        const id = `p1-deck-${i + 1}`;
-        p1.d.push(id);
-        add({ ...createMockCard(id, `Deck Card ${i + 1}`, 'p1-deck', i), f: false });
+// Shuffle function
+const shuffle = <T>(array: T[]): T[] => {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
     }
-
-    // Player 1 Active (1), Bench (2), Prize (6)
-    add(createMockCard('p1-active-1', 'Charizard', 'p1-active', 0));
-    add(createMockCard('p1-bench-1', 'Charmander', 'p1-bench', 0));
-    add(createMockCard('p1-bench-2', 'Bulbasaur', 'p1-bench', 1));
-    for (let i = 0; i < 6; i++) {
-        add({ ...createMockCard(`p1-prize-${i + 1}`, `Prize ${i + 1}`, 'p1-prize', i), f: false });
-    }
-
-    return p1;
+    return newArray;
 };
 
-const generateInitialPlayer2 = (): PlayerState => {
-    const p2: PlayerState = {
-        n: 'Player 2 (Opponent)',
+// Flatten deck data
+const createFlatDeck = (idPrefix: string): Card[] => {
+    let flatCards: Card[] = [];
+    defaultDeck.cards.forEach((ci) => {
+        for (let i = 0; i < ci.count; i++) {
+            flatCards.push(createMockCard('', ci.name, '', 0, ci.imageUrl));
+        }
+    });
+    // Shuffle the deck initially
+    flatCards = shuffle(flatCards);
+
+    // Assign IDs and final metadata
+    return flatCards.map((c, i) => ({
+        ...c,
+        id: `${idPrefix}-${i + 1}`,
+    }));
+};
+
+
+const generateInitialPlayer = (playerPrefix: string, playerName: string): PlayerState => {
+    const p: PlayerState = {
+        n: playerName,
         d: [],
         c: {},
     };
 
-    const add = (c: Card) => { p2.c[c.id] = c; };
+    const add = (c: Card) => { p.c[c.id] = c; };
 
-    // Player 2 Hand (4), Deck (47), Active (1), Bench (1), Prize (6)
-    add(createMockCard('p2-hand-1', 'Eevee', 'p2-hand', 0));
-    add(createMockCard('p2-hand-2', 'Switch', 'p2-hand', 1));
-    add(createMockCard('p2-hand-3', 'Great Ball', 'p2-hand', 2));
-    add(createMockCard('p2-hand-4', 'Fire Energy', 'p2-hand', 3));
-    for (let i = 0; i < 47; i++) {
-        const id = `p2-deck-${i + 1}`;
-        p2.d.push(id);
-        add({ ...createMockCard(id, `P2 Deck Card ${i + 1}`, 'p2-deck', i), f: false });
+    const deckCards = createFlatDeck(playerPrefix);
+    
+    // Distribute 60 cards
+    // Active: 1, Bench: 0, Hand: 7, Prize: 6, Deck: 46 
+
+    let currentIdx = 0;
+
+    // Active (1)
+    if (currentIdx < deckCards.length) {
+        const c = deckCards[currentIdx++];
+        add({ ...c, l: `${playerPrefix}-active`, o: 0, f: true });
     }
-    add(createMockCard('p2-active-1', 'Blastoise', 'p2-active', 0));
-    add(createMockCard('p2-bench-1', 'Meowth', 'p2-bench', 0));
+
+    // Hand (7)
+    for (let i = 0; i < 7; i++) {
+        if (currentIdx < deckCards.length) {
+            const c = deckCards[currentIdx++];
+            add({ ...c, l: `${playerPrefix}-hand`, o: i, f: true });
+        }
+    }
+
+    // Prize (6)
     for (let i = 0; i < 6; i++) {
-        add({ ...createMockCard(`p2-prize-${i + 1}`, `P2 Prize ${i + 1}`, 'p2-prize', i), f: false });
+        if (currentIdx < deckCards.length) {
+            const c = deckCards[currentIdx++];
+            add({ ...c, l: `${playerPrefix}-prize`, o: i, f: false });
+        }
     }
 
-    return p2;
+    // Deck (remaining)
+    let deckOrder = 0;
+    while(currentIdx < deckCards.length) {
+        const c = deckCards[currentIdx++];
+        p.d.push(c.id);
+        add({ ...c, l: `${playerPrefix}-deck`, o: deckOrder++, f: false });
+    }
+
+    return p;
 };
 
 const initialMockState: GameState = {
@@ -84,8 +101,8 @@ const initialMockState: GameState = {
         s: 'playing',
         a: '',
     },
-    p1: generateInitialPlayer1(),
-    p2: generateInitialPlayer2(),
+    p1: generateInitialPlayer('p1', 'Player 1'),
+    p2: generateInitialPlayer('p2', 'Player 2 (Opponent)'),
 };
 
 export function useGameState() {
@@ -185,5 +202,203 @@ export function useGameState() {
         });
     };
 
-    return { gameState, getCardsByLocation, moveCard, updateCardStatus };
+    const returnToDeck = (cardId: string, bottom: boolean = false, shuffleAfter: boolean = false) => {
+        setGameState((prev) => {
+            let pPlayer = 'p1';
+            if (prev.p2.c[cardId]) pPlayer = 'p2';
+            else if (!prev.p1.c[cardId]) return prev;
+
+            const targetPlayer = pPlayer as 'p1' | 'p2';
+            const newState = { ...prev };
+            
+            newState[targetPlayer] = {
+                ...newState[targetPlayer],
+                c: { ...newState[targetPlayer].c },
+                d: [...newState[targetPlayer].d]
+            };
+            
+            const pState = newState[targetPlayer];
+            const cardToReturn = pState.c[cardId];
+
+            if (!cardToReturn) return prev;
+
+            // Remove card from its current array (like hand) handled by state update
+            
+            // Add to deck
+            if (bottom) {
+                pState.d.unshift(cardId); // Add to bottom (index 0)
+            } else {
+                pState.d.push(cardId); // Add to top (end of array)
+            }
+
+            pState.c[cardId] = {
+                ...cardToReturn,
+                l: `${targetPlayer}-deck`,
+                f: false,
+                cnd: [] // Clear status conditions just in case
+            };
+
+            // Re-evaluate order of all cards in deck
+            pState.d.forEach((id, index) => {
+                if (pState.c[id]) {
+                     pState.c[id] = {
+                        ...pState.c[id],
+                        o: index
+                     }
+                }
+            });
+
+            if (shuffleAfter) {
+                pState.d = shuffle(pState.d);
+                pState.d.forEach((id, index) => {
+                    if (pState.c[id]) {
+                         pState.c[id] = {
+                            ...pState.c[id],
+                            o: index
+                         }
+                    }
+                });
+            }
+
+            newState.m = {
+                ...prev.m,
+                a: `${pPlayer}-return-deck-${cardId}`
+            };
+
+            return newState;
+        });
+    };
+
+    const drawCard = (playerId: string) => {
+        setGameState((prev) => {
+            const pPlayer = playerId === 'p1' || playerId === 'player-1' ? 'p1' : 'p2';
+            const newState = { ...prev };
+            newState[pPlayer] = {
+                ...newState[pPlayer],
+                c: { ...newState[pPlayer].c },
+                d: [...newState[pPlayer].d]
+            };
+            const pState = newState[pPlayer];
+
+            if (pState.d.length === 0) return prev;
+
+            // Get top card ID from deck array
+            const topCardId = pState.d.pop();
+            if (!topCardId) return prev;
+
+            const cardToDraw = pState.c[topCardId];
+            if (!cardToDraw) return prev;
+
+            // Use getCardsByLocation logic to find current hand size for ordering
+            const handCards = Object.values(pState.c).filter(c => c.l === `${pPlayer}-hand`);
+            const newOrder = handCards.length;
+
+            pState.c[topCardId] = {
+                ...cardToDraw,
+                l: `${pPlayer}-hand`,
+                o: newOrder,
+                f: true // Face up in hand
+            };
+
+            newState.m = {
+                ...prev.m,
+                a: `${pPlayer}-draw-${topCardId}`
+            };
+
+            return newState;
+        });
+    };
+
+    const shuffleDeck = (playerId: string) => {
+        setGameState((prev) => {
+            const pPlayer = playerId === 'p1' || playerId === 'player-1' ? 'p1' : 'p2';
+            const newState = { ...prev };
+            newState[pPlayer] = {
+                ...newState[pPlayer],
+                c: { ...newState[pPlayer].c },
+                d: [...newState[pPlayer].d]
+            };
+            const pState = newState[pPlayer];
+
+            if (pState.d.length === 0) return prev;
+
+            // Shuffle the deck array
+            const newDeck = shuffle(pState.d);
+            pState.d = newDeck;
+
+            // Update order (o) for cards in the deck
+            newDeck.forEach((cardId, index) => {
+                if (pState.c[cardId]) {
+                    pState.c[cardId] = {
+                        ...pState.c[cardId],
+                        // Ensure a new object is created
+                        id: cardId, // just assigning an existing property safely to force a new object ref if needed, though ... spread already does it
+                        o: index
+                    };
+                }
+            });
+
+            newState.m = {
+                ...prev.m,
+                a: `${pPlayer}-shuffle-deck`
+            };
+
+            return newState;
+        });
+    };
+
+    const returnAllHandToDeck = (playerId: string, bottom: boolean = false, shuffleAfter: boolean = false) => {
+        setGameState((prev) => {
+            const pPlayer = playerId === 'p1' || playerId === 'player-1' ? 'p1' : 'p2';
+            const newState = { ...prev };
+
+            newState[pPlayer] = {
+                ...newState[pPlayer],
+                c: { ...newState[pPlayer].c },
+                d: [...newState[pPlayer].d]
+            };
+
+            const pState = newState[pPlayer];
+            const handLoc = `${pPlayer}-hand`;
+
+            // Find all cards in hand
+            const handCardIds = Object.keys(pState.c).filter(id => pState.c[id].l === handLoc);
+            if (handCardIds.length === 0) return prev;
+
+            // Move each hand card to deck
+            handCardIds.forEach(cardId => {
+                if (bottom) {
+                    pState.d.unshift(cardId);
+                } else {
+                    pState.d.push(cardId);
+                }
+                pState.c[cardId] = {
+                    ...pState.c[cardId],
+                    l: `${pPlayer}-deck`,
+                    f: false,
+                    d: 0,
+                    cnd: []
+                };
+            });
+
+            // Re-evaluate order
+            if (shuffleAfter) {
+                pState.d = shuffle(pState.d);
+            }
+            pState.d.forEach((id, index) => {
+                if (pState.c[id]) {
+                    pState.c[id] = { ...pState.c[id], o: index };
+                }
+            });
+
+            newState.m = {
+                ...prev.m,
+                a: `${pPlayer}-return-all-hand`
+            };
+
+            return newState;
+        });
+    };
+
+    return { gameState, getCardsByLocation, moveCard, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck };
 }

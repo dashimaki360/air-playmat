@@ -66,7 +66,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
                 ref={setNodeRef}
                 {...listeners}
                 {...attributes}
-                className={`w-20 h-28 sm:w-24 sm:h-32 md:w-32 md:h-44 rounded-lg shadow-md border-2 overflow-hidden bg-slate-200 cursor-grab active:cursor-grabbing flex flex-col justify-between
+                className={`w-20 h-28 sm:w-24 sm:h-32 md:w-32 md:h-44 rounded-lg shadow-md border-2 overflow-hidden bg-slate-200 cursor-grab active:cursor-grabbing flex flex-col justify-between relative
           ${isDragging ? 'opacity-50 ring-4 ring-blue-500 border-blue-500' : 'border-slate-800'}
           ${!card.f ? 'bg-gradient-to-br from-blue-700 to-indigo-900 border-blue-400' : ''}`}
                 onClick={(e) => {
@@ -75,26 +75,41 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
                 }}
             >
                 {card.f ? (
-                    <div className="p-1 h-full flex flex-col justify-between text-slate-900 bg-white">
-                        <div className="font-bold text-xs truncate">{card.name || 'Card'}</div>
-                        {/* Status Icons */}
-                        <div className="flex flex-wrap gap-0.5 mt-1">
-                            {card.cnd.map((status) => {
-                                const Icon = STATUS_ICONS[status];
-                                return Icon ? (
-                                    <div key={status} className="bg-red-500 text-white rounded-full p-0.5">
-                                        <Icon size={12} />
-                                    </div>
-                                ) : null;
-                            })}
+                    <>
+                        {/* Background Image */}
+                        {card.imageUrl ? (
+                            <img 
+                                src={card.imageUrl} 
+                                alt={card.name || 'Card Image'} 
+                                className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
+                                draggable={false}
+                            />
+                        ) : null}
+
+                        {/* Card Content Overlay */}
+                        <div className={`relative z-10 p-1 h-full flex flex-col justify-between ${card.imageUrl ? '' : 'bg-white text-slate-900'}`}>
+                            {!card.imageUrl && <div className="font-bold text-xs truncate drop-shadow-md">{card.name || 'Card'}</div>}
+                            {/* Status Icons */}
+                            {area !== 'deck' && (
+                                <div className="flex flex-wrap gap-0.5 mt-1">
+                                    {card.cnd.map((status) => {
+                                        const Icon = STATUS_ICONS[status];
+                                        return Icon ? (
+                                            <div key={status} className="bg-red-500 text-white rounded-full p-0.5 shadow-sm">
+                                                <Icon size={12} />
+                                            </div>
+                                        ) : null;
+                                    })}
+                                </div>
+                            )}
+                            {/* Damage Counters */}
+                            {area !== 'deck' && card.d > 0 && (
+                                <div className="bg-red-600 text-white font-bold text-base rounded-full min-w-6 px-1.5 py-0.5 text-center mt-auto self-end shadow-md border border-red-800">
+                                    {card.d}
+                                </div>
+                            )}
                         </div>
-                        {/* Damage Counters */}
-                        {card.d > 0 && (
-                            <div className="bg-red-600 text-white font-bold text-base rounded-full min-w-6 px-1.5 py-0.5 text-center mt-auto self-end shadow-sm border border-red-800">
-                                {card.d}
-                            </div>
-                        )}
-                    </div>
+                    </>
                 ) : (
                     <div className="flex items-center justify-center h-full w-full">
                         <div className="w-12 h-12 rounded-full border-4 border-white/20 flex items-center justify-center">
@@ -104,7 +119,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
                 )}
             </div>
 
-            {menuOpen && (
+            {menuOpen && area !== 'deck' && (
                 <CardMenu
                     area={area}
                     onAddDamage={handleAddDamage}

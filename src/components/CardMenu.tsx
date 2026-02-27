@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCcw, Plus, Minus, Skull, Flame, Moon, Zap, HelpCircle } from 'lucide-react';
+import { Plus, Minus, Skull, Flame, Moon, Zap, HelpCircle } from 'lucide-react';
 import type { CardStatusCondition, AreaId } from '../types/game';
 
 interface CardMenuProps {
@@ -69,7 +69,7 @@ export function CardMenu({
                             );
                         })}
                     </div>
-                </div>
+            </div>
             )}
         </div>
     );

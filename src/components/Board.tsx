@@ -11,11 +11,13 @@ import { useGameState } from '../hooks/useGameState';
 import { Card } from './Card';
 import { DroppableArea } from './DroppableArea';
 import type { Card as CardType, AreaId, DraggableItemData } from '../types/game';
+import { Search, Shuffle } from 'lucide-react';
 
 export function Board() {
-    const { gameState, getCardsByLocation, moveCard, updateCardStatus } = useGameState();
+    const { gameState, getCardsByLocation, moveCard, updateCardStatus, drawCard, shuffleDeck, returnAllHandToDeck } = useGameState();
     const [activeCardData, setActiveCardData] = useState<DraggableItemData | null>(null);
     const [showDebug, setShowDebug] = useState(false);
+    const [showDeckModal, setShowDeckModal] = useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -216,8 +218,33 @@ export function Board() {
                             {getCardsByLocation('p1-active').length > 0 ? renderCard(getCardsByLocation('p1-active')[0], 'active') : null}
                         </DroppableArea>
 
-                        <DroppableArea id="deck" title="Deck" playerId="player-1" className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center">
+                        <DroppableArea id="deck" title="Deck" playerId="player-1" className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center relative">
                             {renderStackedArea(getCardsByLocation('p1-deck'), 'deck')}
+                            
+                            {/* Deck Action Buttons (below the stack) */}
+                            <div className="flex gap-1 mt-2 z-30">
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); drawCard('p1'); }}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] px-2 py-1 rounded shadow-md border border-blue-400 transition-colors font-bold"
+                                    title="1枚ドロー"
+                                >
+                                    ドロー
+                                </button>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); setShowDeckModal(true); }}
+                                    className="bg-slate-700 hover:bg-slate-600 text-slate-200 p-1 rounded shadow-md border border-slate-500 flex items-center justify-center transition-colors"
+                                    title="山札を見る"
+                                >
+                                    <Search size={12} />
+                                </button>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); shuffleDeck('p1'); }}
+                                    className="bg-slate-700 hover:bg-slate-600 text-slate-200 p-1 rounded shadow-md border border-slate-500 flex items-center justify-center transition-colors"
+                                    title="シャッフル"
+                                >
+                                    <Shuffle size={12} />
+                                </button>
+                            </div>
                         </DroppableArea>
                     </div>
 
@@ -233,8 +260,28 @@ export function Board() {
                     </div>
 
                     {/* Row 3: Hand */}
-                    <DroppableArea id="hand" title="Hand" playerId="player-1" className="min-h-[140px] md:min-h-[180px] border-indigo-500/50 bg-indigo-900/10 shadow-inner flex-row flex-wrap content-start">
+                    <DroppableArea id="hand" title="Hand" playerId="player-1" className="min-h-[140px] md:min-h-[180px] border-indigo-500/50 bg-indigo-900/10 shadow-inner flex-row flex-wrap content-start relative">
                         {getCardsByLocation('p1-hand').map((c, i) => renderCard(c, 'hand', i))}
+                        
+                        {/* Hand Actions */}
+                        {getCardsByLocation('p1-hand').length > 0 && (
+                            <div className="absolute top-1 right-1 flex gap-1 z-30">
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); returnAllHandToDeck('p1', true, false); }}
+                                    className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] px-2 py-1 rounded shadow-md border border-slate-500 transition-colors"
+                                    title="手札を全て山札の下に戻す"
+                                >
+                                    全て山札の下へ
+                                </button>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); returnAllHandToDeck('p1', false, true); }}
+                                    className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] px-2 py-1 rounded shadow-md border border-slate-500 transition-colors"
+                                    title="手札を全て山札に戻してシャッフル"
+                                >
+                                    全て戻してシャッフル
+                                </button>
+                            </div>
+                        )}
                     </DroppableArea>
                 </div>
 
@@ -254,6 +301,45 @@ export function Board() {
                     </div>
                 )}
             </div>
+
+            {/* Deck Viewer Modal */}
+            {showDeckModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+                    <div className="bg-slate-800 border-2 border-slate-600 rounded-xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl">
+                        <div className="flex justify-between items-center p-4 border-b border-slate-700 bg-slate-900/50 rounded-t-xl">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <Search className="text-blue-400" />
+                                山札の確認 ({getCardsByLocation('p1-deck').length}枚)
+                            </h2>
+                            <button 
+                                onClick={() => setShowDeckModal(false)}
+                                className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-1.5 rounded font-bold transition-colors"
+                            >
+                                閉じる
+                            </button>
+                        </div>
+                        <div className="p-4 overflow-y-auto flex-1 bg-slate-900/20">
+                            <div className="flex flex-wrap gap-3 justify-center">
+                                {/* デッキ内のカードを表向き（f: true）として表示 */}
+                                {getCardsByLocation('p1-deck').map((c) => (
+                                    <div key={c.id} className="relative group">
+                                        {/* 無理やり f = true にして表示 */}
+                                        <Card 
+                                            card={{...c, f: true}} 
+                                            area="deck" 
+                                            playerId="player-1" 
+                                            onUpdateStatus={() => {}} 
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="p-3 border-t border-slate-700 text-sm text-slate-400 text-center bg-slate-900/50 rounded-b-xl">
+                            ※ 現在、山札の順番はそのまま表示されています。カードをドラッグして動かすことはできません。
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <DragOverlay dropAnimation={null}>
                 {activeCardData ? (
