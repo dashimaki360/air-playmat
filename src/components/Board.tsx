@@ -89,35 +89,20 @@ export function Board() {
     );
 
     // Active/Bench エリアのポケモンを CardStack で描画
-    const renderCardStack = (card: CardType, area: AreaId, index?: number) => {
+    const renderCardStack = (card: CardType, area: AreaId, playerId: string, index?: number) => {
         const attached = getAttachedCards(card.id);
-        if (attached.length === 0) {
-            // 付属カードなしの場合も CardStack を使う（ドロップ受付のため）
-            return (
-                <CardStack
-                    key={card.id}
-                    baseCard={card}
-                    attachedCards={[]}
-                    area={area}
-                    playerId="player-1"
-                    index={index}
-                    onUpdateStatus={(id, updater) => updateCardStatus(id, updater)}
-                    onDetachCard={(cardId, targetLoc) => detachCard(cardId, targetLoc)}
-                    onTrashWithAttachments={(cardId) => trashWithAttachments(cardId)}
-                />
-            );
-        }
+        const isP1 = playerId === 'player-1';
         return (
             <CardStack
                 key={card.id}
                 baseCard={card}
                 attachedCards={attached}
                 area={area}
-                playerId="player-1"
+                playerId={playerId}
                 index={index}
-                onUpdateStatus={(id, updater) => updateCardStatus(id, updater)}
-                onDetachCard={(cardId, targetLoc) => detachCard(cardId, targetLoc)}
-                onTrashWithAttachments={(cardId) => trashWithAttachments(cardId)}
+                onUpdateStatus={isP1 ? (id, updater) => updateCardStatus(id, updater) : () => {}}
+                onDetachCard={isP1 ? (cardId, targetLoc) => detachCard(cardId, targetLoc) : undefined}
+                onTrashWithAttachments={isP1 ? (cardId) => trashWithAttachments(cardId) : undefined}
             />
         );
     };
@@ -194,16 +179,16 @@ export function Board() {
                                 {/* Opponent Active & Bench */}
                                 <div className="flex flex-col gap-4 items-center">
                                     <div className="flex justify-center gap-2 min-h-[120px] opacity-80">
-                                        {getCardsByLocation('p2-bench').map((c) => (
+                                        {getCardsByLocation('p2-bench').map((c, i) => (
                                             <div key={c.id} className="transform scale-75 origin-top">
-                                                <Card card={c} area="bench" playerId="player-2" onUpdateStatus={() => { }} />
+                                                {renderCardStack(c, 'bench', 'player-2', i)}
                                             </div>
                                         ))}
                                     </div>
                                     <div className="flex justify-center min-h-[140px]">
                                         {p2Active && (
                                             <div className="transform scale-90 origin-bottom">
-                                                <Card card={p2Active} area="active" playerId="player-2" onUpdateStatus={() => { }} />
+                                                {renderCardStack(p2Active, 'active', 'player-2')}
                                             </div>
                                         )}
                                     </div>
@@ -236,7 +221,7 @@ export function Board() {
                         </DroppableArea>
 
                         <DroppableArea id="active" title="Active" playerId="player-1" className="min-h-[140px] md:min-h-[180px] items-center justify-center bg-blue-900/20 border-blue-800">
-                            {getCardsByLocation('p1-active').length > 0 ? renderCardStack(getCardsByLocation('p1-active')[0], 'active') : null}
+                            {getCardsByLocation('p1-active').length > 0 ? renderCardStack(getCardsByLocation('p1-active')[0], 'active', 'player-1') : null}
                         </DroppableArea>
 
                         <DroppableArea id="deck" title="Deck" playerId="player-1" className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center relative">
@@ -272,7 +257,7 @@ export function Board() {
                     {/* Row 2: Bench (widely taking left side), Trash (right end) */}
                     <div className="grid grid-cols-[1fr_100px] sm:grid-cols-[1fr_120px] md:grid-cols-[1fr_140px] gap-2 md:gap-4">
                         <DroppableArea id="bench" title="Bench" playerId="player-1" className="min-h-[140px] md:min-h-[180px] justify-center flex-row flex-wrap content-start">
-                            {getCardsByLocation('p1-bench').map((c, i) => renderCardStack(c, 'bench', i))}
+                            {getCardsByLocation('p1-bench').map((c, i) => renderCardStack(c, 'bench', 'player-1', i))}
                         </DroppableArea>
 
                         <DroppableArea id="trash" title="Trash" playerId="player-1" className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center">
