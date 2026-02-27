@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import type { Card as CardType, AreaId, DraggableItemData } from '../types/game';
+import type { Card as CardType, AreaId, DraggableItemData, CardStatusCondition } from '../types/game';
 import { CardMenu } from './CardMenu';
 import { Skull, Flame, Moon, Zap, HelpCircle } from 'lucide-react';
 
@@ -61,12 +61,12 @@ export function Card({ card, area, playerId, index, onUpdateStatus, isAttached =
         }));
     };
 
-    const handleToggleStatus = (statusId: string) => {
+    const handleToggleStatus = (statusId: CardStatusCondition) => {
         onUpdateStatus(card.id, (c) => {
             const current = c.cnd;
-            const newStatus = current.includes(statusId as any)
+            const newStatus = current.includes(statusId)
                 ? current.filter((s) => s !== statusId)
-                : [...current, statusId as any];
+                : [...current, statusId];
             return { ...c, cnd: newStatus };
         });
     };
