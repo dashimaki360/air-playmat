@@ -108,7 +108,7 @@ export function CardStack({ baseCard, attachedCards, area, playerId, index, onUp
  * 自身も他カードの att 先になっているカード（チェーン中間）を優先的に進化として扱う。
  * それでも判定できない場合は最初に見つかったカードを選ぶ。
  */
-function buildEvolutionChain(baseCard: CardType, attachedCards: CardType[]): CardType[] {
+export function buildEvolutionChain(baseCard: CardType, attachedCards: CardType[]): CardType[] {
     // cardId → そのカードに att されているカード一覧
     const childrenOf = new Map<string, CardType[]>();
     for (const c of attachedCards) {
