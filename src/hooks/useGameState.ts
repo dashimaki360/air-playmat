@@ -213,7 +213,11 @@ export function useGameState() {
             pState.c[cardId] = {
                 ...cardToMove,
                 l: targetLoc,
-                o: newOrder
+                o: newOrder,
+                // 移動先に応じた表裏・状態異常の自動更新
+                ...(targetLoc.includes('-hand') && { f: true }),
+                ...(targetLoc.includes('-deck') && { f: false }),
+                ...(targetLoc.includes('-bench') && { cnd: [] }),
             };
 
             // 付属カード（エネルギー・道具・進化）も一緒に移動
