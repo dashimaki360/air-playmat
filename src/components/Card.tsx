@@ -139,6 +139,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus, isAttached =
             {menuOpen && area !== 'deck' && (
                 <CardMenu
                     area={area}
+                    playerId={playerId}
                     onAddDamage={handleAddDamage}
                     onToggleStatus={handleToggleStatus}
                     currentStatus={card.cnd}

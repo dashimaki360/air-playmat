@@ -4,6 +4,7 @@ import type { CardStatusCondition, AreaId, Card as CardType } from '../types/gam
 
 interface CardMenuProps {
     area: AreaId;
+    playerId: string;
     onAddDamage: (amount: number) => void;
     onToggleStatus: (status: CardStatusCondition) => void;
     currentStatus: CardStatusCondition[];
@@ -17,6 +18,7 @@ interface CardMenuProps {
 
 export function CardMenu({
     area,
+    playerId,
     onAddDamage,
     onToggleStatus,
     currentStatus,
@@ -24,6 +26,7 @@ export function CardMenu({
     onDetachCard,
     onTrashWithAttachments,
 }: CardMenuProps) {
+    const pPrefix = playerId === 'player-1' ? 'p1' : 'p2';
     const [showAttached, setShowAttached] = useState(false);
     // Prevent clicks from triggering drag
     const stopProp = (e: React.MouseEvent) => e.stopPropagation();
@@ -111,7 +114,7 @@ export function CardMenu({
                                     </div>
                                     {onDetachCard && (
                                         <button
-                                            onClick={() => onDetachCard(c.id, `p1-hand`)}
+                                            onClick={() => onDetachCard(c.id, `${pPrefix}-hand`)}
                                             className="bg-orange-600 hover:bg-orange-500 text-white px-1.5 py-0.5 rounded text-[10px] flex-shrink-0"
                                             title="手札に戻す"
                                         >
