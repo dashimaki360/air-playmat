@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { buildEvolutionChain } from './CardStack';
-import type { Card } from '../types/game';
+import type { Card, CardType } from '../types/game';
 
-const makeCard = (id: string, att?: string): Card => ({
+const makeCard = (id: string, att?: string, tp?: CardType): Card => ({
     id,
     tId: 'test',
     f: true,
@@ -11,6 +11,7 @@ const makeCard = (id: string, att?: string): Card => ({
     l: 'p1-active',
     o: 0,
     att,
+    tp,
 });
 
 describe('buildEvolutionChain', () => {
@@ -20,42 +21,77 @@ describe('buildEvolutionChain', () => {
         expect(chain).toEqual([base]);
     });
 
-    it('1枚の付属カードがある場合は2要素のチェーンを返す', () => {
-        const base = makeCard('base');
-        const evo  = makeCard('evo', 'base');
+    it('tp=pokemonの付属カードがある場合は2要素のチェーンを返す', () => {
+        const base = makeCard('base', undefined, 'pokemon');
+        const evo  = makeCard('evo', 'base', 'pokemon');
         const chain = buildEvolutionChain(base, [evo]);
         expect(chain).toEqual([base, evo]);
     });
 
     it('2段階の進化チェーン（base→evo1→evo2）を正しく辿る', () => {
-        const base = makeCard('base');
-        const evo1 = makeCard('evo1', 'base');
-        const evo2 = makeCard('evo2', 'evo1');
+        const base = makeCard('base', undefined, 'pokemon');
+        const evo1 = makeCard('evo1', 'base', 'pokemon');
+        const evo2 = makeCard('evo2', 'evo1', 'pokemon');
         const chain = buildEvolutionChain(base, [evo1, evo2]);
         expect(chain).toEqual([base, evo1, evo2]);
     });
 
-    it('進化とエネルギーが混在する場合、子を持つカード（進化）を優先する', () => {
-        // base に evo と energy が両方 att されているが、evo は evo2 の親でもある
-        const base   = makeCard('base');
-        const evo    = makeCard('evo',    'base');
-        const evo2   = makeCard('evo2',   'evo');
-        const energy = makeCard('energy', 'base'); // 子なし
+    it('tp=pokemonの進化とtp=energyが混在する場合、進化のみチェーンに入る', () => {
+        const base   = makeCard('base',   undefined, 'pokemon');
+        const evo    = makeCard('evo',    'base',    'pokemon');
+        const evo2   = makeCard('evo2',   'evo',     'pokemon');
+        const energy = makeCard('energy', 'base',    'energy');
 
         const chain = buildEvolutionChain(base, [energy, evo, evo2]);
-        // energy が先に並んでいても evo が優先される
         expect(chain[1]).toEqual(evo);
         expect(chain[2]).toEqual(evo2);
     });
 
-    it('エネルギーが複数ついているだけ（進化なし）の場合は先頭のカードが選ばれる', () => {
-        const base  = makeCard('base');
-        const eng1  = makeCard('eng1', 'base');
-        const eng2  = makeCard('eng2', 'base');
+    it('エネルギーが複数ついているだけ（進化なし）の場合はbaseCardのみのチェーンになる', () => {
+        const base = makeCard('base',  undefined, 'pokemon');
+        const eng1 = makeCard('eng1', 'base',    'energy');
+        const eng2 = makeCard('eng2', 'base',    'energy');
 
         const chain = buildEvolutionChain(base, [eng1, eng2]);
-        // どちらも子なし → 先頭を選ぶ
-        expect(chain.length).toBe(2);
+        expect(chain.length).toBe(1);
         expect(chain[0]).toEqual(base);
+    });
+});
+
+describe('buildEvolutionChain (tp フィールドによる区別)', () => {
+    it('tp=pokemonの進化カードはチェーンに含まれる', () => {
+        const base = makeCard('base', undefined, 'pokemon');
+        const evo  = makeCard('evo', 'base', 'pokemon');
+        const chain = buildEvolutionChain(base, [evo]);
+        expect(chain).toEqual([base, evo]);
+    });
+
+    it('tp=energyのカードはチェーンに含まれない（nonEvolutionCards扱い）', () => {
+        const base   = makeCard('base',   undefined, 'pokemon');
+        const energy = makeCard('energy', 'base',    'energy');
+        const chain  = buildEvolutionChain(base, [energy]);
+        expect(chain).toEqual([base]);
+    });
+
+    it('tp=pokemonの進化とtp=energyが混在する場合、進化のみチェーンに入る', () => {
+        const base   = makeCard('base',   undefined, 'pokemon');
+        const evo    = makeCard('evo',    'base',    'pokemon');
+        const energy = makeCard('energy', 'base',    'energy');
+        const chain  = buildEvolutionChain(base, [energy, evo]);
+        expect(chain).toEqual([base, evo]);
+    });
+
+    it('tp=itemのカードはチェーンに含まれない', () => {
+        const base = makeCard('base', undefined, 'pokemon');
+        const item = makeCard('item', 'base',    'item');
+        const chain = buildEvolutionChain(base, [item]);
+        expect(chain).toEqual([base]);
+    });
+
+    it('tpがundefinedの場合はpokemon扱いにならずbaseCardのみのチェーンになる', () => {
+        const base = makeCard('base');
+        const evo  = makeCard('evo', 'base'); // tp未設定
+        const chain = buildEvolutionChain(base, [evo]);
+        expect(chain).toEqual([base]);
     });
 });

@@ -109,10 +109,10 @@ export function CardStack({ baseCard, attachedCards, area, playerId, index, onUp
  * それでも判定できない場合は最初に見つかったカードを選ぶ。
  */
 export function buildEvolutionChain(baseCard: CardType, attachedCards: CardType[]): CardType[] {
-    // cardId → そのカードに att されているカード一覧
+    // cardId → そのカードに att されているカード一覧（ポケモンカードのみ）
     const childrenOf = new Map<string, CardType[]>();
     for (const c of attachedCards) {
-        if (c.att) {
+        if (c.att && c.tp === 'pokemon') {
             if (!childrenOf.has(c.att)) childrenOf.set(c.att, []);
             childrenOf.get(c.att)!.push(c);
         }

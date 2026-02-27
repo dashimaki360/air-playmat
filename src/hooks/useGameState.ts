@@ -1,10 +1,20 @@
 import { useState } from 'react';
-import type { GameState, Card, PlayerState } from '../types/game';
+import type { GameState, Card, CardType, PlayerState } from '../types/game';
 
 import defaultDeck from '../data/defaultDeck.json';
 
+const CARD_TYPE_MAP: Record<string, CardType> = {
+    'ポケモン':         'pokemon',
+    'グッズ':           'item',
+    'ポケモンのどうぐ': 'pokemon-tool',
+    'サポート':         'supporter',
+    'スタジアム':       'stadium',
+    'エネルギー':       'energy',
+    'わざマシン':       'technical-machine',
+};
+
 // Utility to generate a basic mock card with loc and ord
-const createMockCard = (id: string, name: string, l: string, o: number = 0, imageUrl?: string): Card => ({
+const createMockCard = (id: string, name: string, l: string, o: number = 0, imageUrl?: string, tp?: CardType): Card => ({
     id,
     tId: 'mock-template',
     f: true,
@@ -15,6 +25,7 @@ const createMockCard = (id: string, name: string, l: string, o: number = 0, imag
     o,
     att: undefined,
     imageUrl,
+    tp,
 });
 
 // Shuffle function
@@ -55,7 +66,7 @@ const createFlatDeck = (idPrefix: string): Card[] => {
     let flatCards: Card[] = [];
     defaultDeck.cards.forEach((ci) => {
         for (let i = 0; i < ci.count; i++) {
-            flatCards.push(createMockCard('', ci.name, '', 0, ci.imageUrl));
+            flatCards.push(createMockCard('', ci.name, '', 0, ci.imageUrl, CARD_TYPE_MAP[ci.type]));
         }
     });
     // Shuffle the deck initially

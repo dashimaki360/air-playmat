@@ -1,5 +1,7 @@
 export type CardStatusCondition = 'poison' | 'burn' | 'asleep' | 'paralyzed' | 'confused';
 
+export type CardType = 'pokemon' | 'item' | 'pokemon-tool' | 'supporter' | 'stadium' | 'energy' | 'technical-machine';
+
 export type AreaId = 
   | 'deck' 
   | 'hand' 
@@ -19,7 +21,8 @@ export type Card = {
   l: string; // location (e.g. "p1-hand", "p2-active", "stadium") (旧 loc)
   o: number; // order / zIndex for stacked areas (旧 ord)
   att?: string; // attachedTo: 親カードのID（進化元・エネルギー/道具の付け先）
-  
+  tp?: CardType; // カードの種類（Firebase通信量削減のため短縮）
+
   // Optional for mock UI display
   name?: string;
   imageUrl?: string;
