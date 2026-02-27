@@ -33,7 +33,7 @@ export function CardMenu({
 
     return (
         <div
-            className="absolute top-0 left-full ml-2 w-52 bg-slate-800 border border-slate-600 rounded shadow-lg p-2 z-50 text-sm text-white flex flex-col gap-2 max-h-[400px] overflow-y-auto"
+            className="w-52 bg-slate-800 border border-slate-600 rounded shadow-lg p-2 text-sm text-white flex flex-col gap-2 max-h-[400px] overflow-y-auto"
             onClick={stopProp}
             onPointerDown={stopProp}
         >

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useDraggable } from '@dnd-kit/core';
 import type { Card as CardType, AreaId, DraggableItemData, CardStatusCondition } from '../types/game';
 import { CardMenu } from './CardMenu';
@@ -34,6 +35,8 @@ interface CardProps {
 
 export function Card({ card, area, playerId, index, onUpdateStatus, isAttached = false, attachedCount = 0, attachedCards, onDetachCard, onTrashWithAttachments, stackBaseCardId }: CardProps) {
     const [menuOpen, setMenuOpen] = useState(false);
+    const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+    const cardRef = useRef<HTMLDivElement>(null);
 
     const draggableData: DraggableItemData = {
         type: 'card',
@@ -77,7 +80,10 @@ export function Card({ card, area, playerId, index, onUpdateStatus, isAttached =
     return (
         <div className="relative inline-block touch-none" style={style}>
             <div
-                ref={setNodeRef}
+                ref={(el) => {
+                    setNodeRef(el);
+                    (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+                }}
                 {...listeners}
                 {...attributes}
                 className={`w-20 h-28 sm:w-24 sm:h-32 md:w-32 md:h-44 rounded-lg shadow-md border-2 overflow-hidden bg-slate-200 cursor-grab active:cursor-grabbing flex flex-col justify-between relative
@@ -85,16 +91,22 @@ export function Card({ card, area, playerId, index, onUpdateStatus, isAttached =
           ${!card.f ? 'bg-gradient-to-br from-blue-700 to-indigo-900 border-blue-400' : ''}`}
                 onClick={(e) => {
                     e.stopPropagation();
-                    if (!isAttached) setMenuOpen(!menuOpen);
+                    if (!isAttached) {
+                        if (!menuOpen && cardRef.current) {
+                            const rect = cardRef.current.getBoundingClientRect();
+                            setMenuPos({ top: rect.top, left: rect.right + 8 });
+                        }
+                        setMenuOpen(!menuOpen);
+                    }
                 }}
             >
                 {card.f ? (
                     <>
                         {/* Background Image */}
                         {card.imageUrl ? (
-                            <img 
-                                src={card.imageUrl} 
-                                alt={card.name || 'Card Image'} 
+                            <img
+                                src={card.imageUrl}
+                                alt={card.name || 'Card Image'}
                                 className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
                                 draggable={false}
                             />
@@ -139,26 +151,31 @@ export function Card({ card, area, playerId, index, onUpdateStatus, isAttached =
                 )}
             </div>
 
-            {menuOpen && area !== 'deck' && (
-                <CardMenu
-                    area={area}
-                    playerId={playerId}
-                    onAddDamage={handleAddDamage}
-                    onToggleStatus={handleToggleStatus}
-                    currentStatus={card.cnd}
-                    attachedCards={attachedCards}
-                    onDetachCard={onDetachCard}
-                    onTrashWithAttachments={onTrashWithAttachments}
-                />
+            {menuOpen && (area === 'active' || area === 'bench') && createPortal(
+                <div style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, zIndex: 9999 }}>
+                    <CardMenu
+                        area={area}
+                        playerId={playerId}
+                        onAddDamage={handleAddDamage}
+                        onToggleStatus={handleToggleStatus}
+                        currentStatus={card.cnd}
+                        attachedCards={attachedCards}
+                        onDetachCard={onDetachCard}
+                        onTrashWithAttachments={onTrashWithAttachments}
+                    />
+                </div>,
+                document.body
             )}
-            {menuOpen && (
+            {menuOpen && createPortal(
                 <div
-                    className="fixed inset-0 z-40 bg-transparent"
+                    className="fixed inset-0 bg-transparent"
+                    style={{ zIndex: 9998 }}
                     onClick={(e) => {
                         e.stopPropagation();
                         setMenuOpen(false);
                     }}
-                />
+                />,
+                document.body
             )}
         </div>
     );
