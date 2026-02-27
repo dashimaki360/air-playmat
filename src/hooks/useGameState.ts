@@ -13,6 +13,7 @@ const createMockCard = (id: string, name: string, l: string, o: number = 0, imag
     name,
     l,
     o,
+    att: undefined,
     imageUrl,
 });
 
@@ -24,6 +25,29 @@ const shuffle = <T>(array: T[]): T[] => {
         [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
     }
     return newArray;
+};
+
+// 指定カードに付属する全カードを再帰的に収集するヘルパー
+const collectAllAttached = (cardId: string, cards: Record<string, Card>): Card[] => {
+    const result: Card[] = [];
+    const collect = (targetId: string) => {
+        const attached = Object.values(cards).filter(c => c.att === targetId);
+        for (const c of attached) {
+            result.push(c);
+            collect(c.id);
+        }
+    };
+    collect(cardId);
+    return result;
+};
+
+// カードの att チェーンを辿って、ルート（ベースポケモン）のIDを返すヘルパー
+const findRootCardId = (card: Card, cards: Record<string, Card>): string => {
+    let current = card;
+    while (current.att && cards[current.att]) {
+        current = cards[current.att];
+    }
+    return current.id;
 };
 
 // Flatten deck data
@@ -109,14 +133,34 @@ export function useGameState() {
     const [gameState, setGameState] = useState<GameState>(initialMockState);
 
     // Get cards grouped/sorted by location for easy UI rendering
+    // att が設定されているカード（誰かに重ねられているカード）は除外し、独立カードのみ返す
     const getCardsByLocation = (loc: string): Card[] => {
         const allCards = [
             ...Object.values(gameState.p1.c),
             ...Object.values(gameState.p2.c)
         ];
         return allCards
-            .filter(c => c.l === loc)
+            .filter(c => c.l === loc && !c.att)
             .sort((a, b) => a.o - b.o);
+    };
+
+    // 指定カードに付いている全カード（エネルギー・道具・進化カード）を取得
+    const getAttachedCards = (cardId: string): Card[] => {
+        const allCards = [
+            ...Object.values(gameState.p1.c),
+            ...Object.values(gameState.p2.c)
+        ];
+        // 直接 att が cardId のカードを再帰的に集める
+        const result: Card[] = [];
+        const collectAttached = (targetId: string) => {
+            const attached = allCards.filter(c => c.att === targetId);
+            for (const c of attached) {
+                result.push(c);
+                collectAttached(c.id); // 進化チェーンを辿る
+            }
+        };
+        collectAttached(cardId);
+        return result;
     };
 
     const moveCard = (
@@ -146,13 +190,19 @@ export function useGameState() {
 
             // Optional: スワップロジックの適応（Activeに既にカードがある場合、元の配置に戻す）
             if (targetLoc.includes('-active')) {
-                const existingActive = Object.values(pState.c).find(c => c.l === targetLoc);
+                // att されていない独立カードのみスワップ対象
+                const existingActive = Object.values(pState.c).find(c => c.l === targetLoc && !c.att);
                 if (existingActive && existingActive.id !== cardId) {
                     pState.c[existingActive.id] = {
                         ...existingActive,
                         l: sourceLoc, // 元の場所に押し戻す
                         o: 999 // ひとまず末尾へ
                     };
+                    // スワップ対象のカードに付属しているカードも一緒に移動
+                    const swapAttached = Object.values(pState.c).filter(c => c.att && findRootCardId(c, pState.c) === existingActive.id);
+                    swapAttached.forEach(ac => {
+                        pState.c[ac.id] = { ...ac, l: sourceLoc };
+                    });
                 }
             }
 
@@ -166,6 +216,12 @@ export function useGameState() {
                 o: newOrder
             };
 
+            // 付属カード（エネルギー・道具・進化）も一緒に移動
+            const attachedCards = collectAllAttached(cardId, pState.c);
+            attachedCards.forEach(ac => {
+                pState.c[ac.id] = { ...ac, l: targetLoc };
+            });
+
             // 山札配列の調整処理
             if (sourceLoc.includes('-deck')) {
                 pState.d = pState.d.filter(id => id !== cardId);
@@ -177,6 +233,152 @@ export function useGameState() {
             newState.m = {
                 ...prev.m,
                 a: `${pPlayer}-move-${cardId}`
+            };
+
+            return newState;
+        });
+    };
+
+    // カードを別のカードに重ねる（進化・エネルギー・道具付与）
+    const attachCard = (cardId: string, targetCardId: string) => {
+        setGameState((prev) => {
+            // Determine which player owns the card
+            let pPlayer = 'p1';
+            if (prev.p2.c[cardId]) pPlayer = 'p2';
+            else if (!prev.p1.c[cardId]) return prev;
+
+            const targetPlayerObj = pPlayer as 'p1' | 'p2';
+            const newState = { ...prev };
+
+            newState[targetPlayerObj] = {
+                ...prev[targetPlayerObj],
+                c: { ...prev[targetPlayerObj].c },
+                d: [...prev[targetPlayerObj].d]
+            };
+
+            const pState = newState[targetPlayerObj];
+            const cardToAttach = pState.c[cardId];
+            const targetCard = pState.c[targetCardId];
+
+            if (!cardToAttach || !targetCard) return prev;
+
+            // カードの att と location を更新
+            pState.c[cardId] = {
+                ...cardToAttach,
+                att: targetCardId,
+                l: targetCard.l, // 親カードと同じ location に
+                f: true, // 表向き
+            };
+
+            // 山札から取り除く
+            if (cardToAttach.l.includes('-deck')) {
+                pState.d = pState.d.filter(id => id !== cardId);
+            }
+
+            newState.m = {
+                ...prev.m,
+                a: `${pPlayer}-attach-${cardId}-to-${targetCardId}`
+            };
+
+            return newState;
+        });
+    };
+
+    // 重ねたカードを外して別の場所へ移動
+    const detachCard = (cardId: string, targetLoc: string) => {
+        setGameState((prev) => {
+            let pPlayer = 'p1';
+            if (prev.p2.c[cardId]) pPlayer = 'p2';
+            else if (!prev.p1.c[cardId]) return prev;
+
+            const targetPlayerObj = pPlayer as 'p1' | 'p2';
+            const newState = { ...prev };
+
+            newState[targetPlayerObj] = {
+                ...prev[targetPlayerObj],
+                c: { ...prev[targetPlayerObj].c },
+                d: [...prev[targetPlayerObj].d]
+            };
+
+            const pState = newState[targetPlayerObj];
+            const card = pState.c[cardId];
+            if (!card) return prev;
+
+            // 移動先のorder計算
+            const targetCards = Object.values(pState.c).filter(c => c.l === targetLoc && !c.att);
+            const newOrder = targetCards.length;
+
+            pState.c[cardId] = {
+                ...card,
+                att: undefined,
+                l: targetLoc,
+                o: newOrder,
+            };
+
+            // 山札への移動処理
+            if (targetLoc.includes('-deck')) {
+                pState.d.push(cardId);
+                pState.c[cardId] = { ...pState.c[cardId], f: false };
+            }
+            if (targetLoc.includes('-hand')) {
+                pState.c[cardId] = { ...pState.c[cardId], f: true };
+            }
+
+            newState.m = {
+                ...prev.m,
+                a: `${pPlayer}-detach-${cardId}`
+            };
+
+            return newState;
+        });
+    };
+
+    // ポケモンと付いているカード全てをトラッシュに送る（きぜつ処理）
+    const trashWithAttachments = (cardId: string) => {
+        setGameState((prev) => {
+            let pPlayer = 'p1';
+            if (prev.p2.c[cardId]) pPlayer = 'p2';
+            else if (!prev.p1.c[cardId]) return prev;
+
+            const targetPlayerObj = pPlayer as 'p1' | 'p2';
+            const newState = { ...prev };
+
+            newState[targetPlayerObj] = {
+                ...prev[targetPlayerObj],
+                c: { ...prev[targetPlayerObj].c },
+                d: [...prev[targetPlayerObj].d]
+            };
+
+            const pState = newState[targetPlayerObj];
+            const trashLoc = `${pPlayer}-trash`;
+
+            // 付属カードを全て収集（再帰的）
+            const allAttached = collectAllAttached(cardId, pState.c);
+            const allCardIds = [cardId, ...allAttached.map(c => c.id)];
+
+            // 全てトラッシュに移動
+            const trashCards = Object.values(pState.c).filter(c => c.l === trashLoc);
+            let trashOrder = trashCards.length;
+
+            allCardIds.forEach(id => {
+                if (pState.c[id]) {
+                    pState.c[id] = {
+                        ...pState.c[id],
+                        l: trashLoc,
+                        att: undefined,
+                        f: true, // トラッシュは表向き
+                        d: 0, // ダメージリセット
+                        cnd: [], // 状態異常リセット
+                        o: trashOrder++,
+                    };
+                    // 山札から取り除く
+                    pState.d = pState.d.filter(dId => dId !== id);
+                }
+            });
+
+            newState.m = {
+                ...prev.m,
+                a: `${pPlayer}-trash-${cardId}-with-attachments`
             };
 
             return newState;
@@ -400,5 +602,5 @@ export function useGameState() {
         });
     };
 
-    return { gameState, getCardsByLocation, moveCard, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck };
+    return { gameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck };
 }

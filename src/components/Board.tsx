@@ -9,12 +9,13 @@ import {
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useGameState } from '../hooks/useGameState';
 import { Card } from './Card';
+import { CardStack } from './CardStack';
 import { DroppableArea } from './DroppableArea';
 import type { Card as CardType, AreaId, DraggableItemData } from '../types/game';
 import { Search, Shuffle } from 'lucide-react';
 
 export function Board() {
-    const { gameState, getCardsByLocation, moveCard, updateCardStatus, drawCard, shuffleDeck, returnAllHandToDeck } = useGameState();
+    const { gameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnAllHandToDeck } = useGameState();
     const [activeCardData, setActiveCardData] = useState<DraggableItemData | null>(null);
     const [showDebug, setShowDebug] = useState(false);
     const [showDeckModal, setShowDeckModal] = useState(false);
@@ -40,15 +41,24 @@ export function Board() {
 
         if (!over) return;
 
+        // カードの上にカードをドロップ（重ねる）
+        if (active.data.current?.type === 'card' && over.data.current?.type === 'card') {
+            const activeData = active.data.current as DraggableItemData;
+            const targetCardId = over.data.current.cardId as string;
+
+            // 自分自身には重ねられない
+            if (activeData.card.id !== targetCardId) {
+                attachCard(activeData.card.id, targetCardId);
+            }
+            return;
+        }
+
         if (active.data.current?.type === 'card' && over.data.current?.type === 'area') {
             const activeData = active.data.current as DraggableItemData;
             const targetAreaId = over.data.current.areaId as AreaId;
-            // We only support moving for player 1 currently
-            // if target player is different, handle it here
 
             // Move card
             if (activeData.sourceArea !== targetAreaId) {
-                // Convert "player-1" to "p1" for location keys
                 const pPrefix = activeData.playerId === 'player-1' ? 'p1' : 'p2';
                 
                 const sourceLoc = activeData.sourceArea === 'stadium' 
@@ -58,12 +68,10 @@ export function Board() {
                     ? 'stadium' 
                     : `${pPrefix}-${targetAreaId}`;
                 
-                // Active or Stadium generally only has 1 card
                 moveCard(activeData.card.id, sourceLoc, targetLoc);
 
                 // もしHandへ移動した場合は自動的に表向き（f = true）にする
                 if (targetAreaId === 'hand') {
-                    // Update the state slightly after move completes
                     setTimeout(() => {
                         updateCardStatus(activeData.card.id, (c) => ({ ...c, f: true }));
                     }, 0);
@@ -100,6 +108,40 @@ export function Board() {
             onUpdateStatus={(id, updater) => updateCardStatus(id, updater)}
         />
     );
+
+    // Active/Bench エリアのポケモンを CardStack で描画
+    const renderCardStack = (card: CardType, area: AreaId, index?: number) => {
+        const attached = getAttachedCards(card.id);
+        if (attached.length === 0) {
+            // 付属カードなしの場合も CardStack を使う（ドロップ受付のため）
+            return (
+                <CardStack
+                    key={card.id}
+                    baseCard={card}
+                    attachedCards={[]}
+                    area={area}
+                    playerId="player-1"
+                    index={index}
+                    onUpdateStatus={(id, updater) => updateCardStatus(id, updater)}
+                    onDetachCard={(cardId, targetLoc) => detachCard(cardId, targetLoc)}
+                    onTrashWithAttachments={(cardId) => trashWithAttachments(cardId)}
+                />
+            );
+        }
+        return (
+            <CardStack
+                key={card.id}
+                baseCard={card}
+                attachedCards={attached}
+                area={area}
+                playerId="player-1"
+                index={index}
+                onUpdateStatus={(id, updater) => updateCardStatus(id, updater)}
+                onDetachCard={(cardId, targetLoc) => detachCard(cardId, targetLoc)}
+                onTrashWithAttachments={(cardId) => trashWithAttachments(cardId)}
+            />
+        );
+    };
 
     const renderStackedArea = (cards: CardType[], area: AreaId) => {
         if (cards.length === 0) return null;
@@ -215,7 +257,7 @@ export function Board() {
                         </DroppableArea>
 
                         <DroppableArea id="active" title="Active" playerId="player-1" className="min-h-[140px] md:min-h-[180px] items-center justify-center bg-blue-900/20 border-blue-800">
-                            {getCardsByLocation('p1-active').length > 0 ? renderCard(getCardsByLocation('p1-active')[0], 'active') : null}
+                            {getCardsByLocation('p1-active').length > 0 ? renderCardStack(getCardsByLocation('p1-active')[0], 'active') : null}
                         </DroppableArea>
 
                         <DroppableArea id="deck" title="Deck" playerId="player-1" className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center relative">
@@ -251,7 +293,7 @@ export function Board() {
                     {/* Row 2: Bench (widely taking left side), Trash (right end) */}
                     <div className="grid grid-cols-[1fr_100px] sm:grid-cols-[1fr_120px] md:grid-cols-[1fr_140px] gap-2 md:gap-4">
                         <DroppableArea id="bench" title="Bench" playerId="player-1" className="min-h-[140px] md:min-h-[180px] justify-center flex-row flex-wrap content-start">
-                            {getCardsByLocation('p1-bench').map((c, i) => renderCard(c, 'bench', i))}
+                            {getCardsByLocation('p1-bench').map((c, i) => renderCardStack(c, 'bench', i))}
                         </DroppableArea>
 
                         <DroppableArea id="trash" title="Trash" playerId="player-1" className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center">

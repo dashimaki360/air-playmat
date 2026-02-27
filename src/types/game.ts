@@ -18,6 +18,7 @@ export type Card = {
   cnd: CardStatusCondition[]; // statusConditions
   l: string; // location (e.g. "p1-hand", "p2-active", "stadium") (旧 loc)
   o: number; // order / zIndex for stacked areas (旧 ord)
+  att?: string; // attachedTo: 親カードのID（進化元・エネルギー/道具の付け先）
   
   // Optional for mock UI display
   name?: string;

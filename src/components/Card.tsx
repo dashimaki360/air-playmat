@@ -18,9 +18,19 @@ interface CardProps {
     playerId: string;
     index?: number;
     onUpdateStatus: (id: string, updater: (c: CardType) => CardType) => void;
+    /** true の場合、このカードは別のカードに付属して表示されている（ドラッグ・メニュー無効） */
+    isAttached?: boolean;
+    /** このカードに付属しているカードの数（バッジ表示用） */
+    attachedCount?: number;
+    /** このポケモンに付属しているカード一覧（CardMenu用） */
+    attachedCards?: CardType[];
+    /** カードをはがすコールバック */
+    onDetachCard?: (cardId: string, targetLoc: string) => void;
+    /** きぜつコールバック */
+    onTrashWithAttachments?: () => void;
 }
 
-export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps) {
+export function Card({ card, area, playerId, index, onUpdateStatus, isAttached = false, attachedCount = 0, attachedCards, onDetachCard, onTrashWithAttachments }: CardProps) {
     const [menuOpen, setMenuOpen] = useState(false);
 
     const draggableData: DraggableItemData = {
@@ -34,6 +44,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: card.id,
         data: draggableData,
+        disabled: isAttached, // 付属カードはドラッグ不可
     });
 
     const style = transform
@@ -71,7 +82,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
           ${!card.f ? 'bg-gradient-to-br from-blue-700 to-indigo-900 border-blue-400' : ''}`}
                 onClick={(e) => {
                     e.stopPropagation();
-                    setMenuOpen(!menuOpen);
+                    if (!isAttached) setMenuOpen(!menuOpen);
                 }}
             >
                 {card.f ? (
@@ -108,6 +119,12 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
                                     {card.d}
                                 </div>
                             )}
+                            {/* Attached cards count badge */}
+                            {attachedCount > 0 && (
+                                <div className="absolute bottom-1 left-1 bg-blue-500 text-white font-bold text-[10px] rounded-full min-w-5 px-1 py-0.5 text-center shadow-md border border-blue-700 z-20">
+                                    +{attachedCount}
+                                </div>
+                            )}
                         </div>
                     </>
                 ) : (
@@ -125,6 +142,9 @@ export function Card({ card, area, playerId, index, onUpdateStatus }: CardProps)
                     onAddDamage={handleAddDamage}
                     onToggleStatus={handleToggleStatus}
                     currentStatus={card.cnd}
+                    attachedCards={attachedCards}
+                    onDetachCard={onDetachCard}
+                    onTrashWithAttachments={onTrashWithAttachments}
                 />
             )}
             {menuOpen && (

@@ -1,12 +1,18 @@
-import React from 'react';
-import { Plus, Minus, Skull, Flame, Moon, Zap, HelpCircle } from 'lucide-react';
-import type { CardStatusCondition, AreaId } from '../types/game';
+import React, { useState } from 'react';
+import { Plus, Minus, Skull, Flame, Moon, Zap, HelpCircle, Layers, Trash2 } from 'lucide-react';
+import type { CardStatusCondition, AreaId, Card as CardType } from '../types/game';
 
 interface CardMenuProps {
     area: AreaId;
     onAddDamage: (amount: number) => void;
     onToggleStatus: (status: CardStatusCondition) => void;
     currentStatus: CardStatusCondition[];
+    /** このポケモンに付属しているカード一覧 */
+    attachedCards?: CardType[];
+    /** カードをはがす（カードID, 移動先） */
+    onDetachCard?: (cardId: string, targetLoc: string) => void;
+    /** きぜつ（ポケモンと付属カード全てをトラッシュ） */
+    onTrashWithAttachments?: () => void;
 }
 
 export function CardMenu({
@@ -14,13 +20,17 @@ export function CardMenu({
     onAddDamage,
     onToggleStatus,
     currentStatus,
+    attachedCards = [],
+    onDetachCard,
+    onTrashWithAttachments,
 }: CardMenuProps) {
+    const [showAttached, setShowAttached] = useState(false);
     // Prevent clicks from triggering drag
     const stopProp = (e: React.MouseEvent) => e.stopPropagation();
 
     return (
         <div
-            className="absolute top-0 left-full ml-2 w-48 bg-slate-800 border border-slate-600 rounded shadow-lg p-2 z-50 text-sm text-white flex flex-col gap-2"
+            className="absolute top-0 left-full ml-2 w-52 bg-slate-800 border border-slate-600 rounded shadow-lg p-2 z-50 text-sm text-white flex flex-col gap-2 max-h-[400px] overflow-y-auto"
             onClick={stopProp}
             onPointerDown={stopProp}
         >
@@ -70,6 +80,60 @@ export function CardMenu({
                         })}
                     </div>
             </div>
+            )}
+
+            {/* スタック操作 (active/bench のみ) */}
+            {(area === 'active' || area === 'bench') && (
+                <div className="border-t border-slate-600 my-1 pt-1">
+                    <div className="text-xs text-slate-400 mb-1">カード操作</div>
+
+                    {/* つけたカードを見る */}
+                    {attachedCards.length > 0 && (
+                        <button
+                            onClick={() => setShowAttached(!showAttached)}
+                            className="w-full p-1.5 bg-blue-700 hover:bg-blue-600 rounded flex items-center gap-2 mb-1"
+                        >
+                            <Layers size={14} />
+                            つけたカード ({attachedCards.length})
+                        </button>
+                    )}
+
+                    {/* つけたカード一覧 */}
+                    {showAttached && attachedCards.length > 0 && (
+                        <div className="bg-slate-900 rounded p-2 mb-1 flex flex-col gap-1 max-h-[200px] overflow-y-auto">
+                            {attachedCards.map((c) => (
+                                <div key={c.id} className="flex items-center justify-between gap-1 text-xs">
+                                    <div className="flex items-center gap-1 min-w-0 flex-1">
+                                        {c.imageUrl ? (
+                                            <img src={c.imageUrl} alt="" className="w-6 h-8 rounded object-cover flex-shrink-0" />
+                                        ) : null}
+                                        <span className="truncate">{c.name || 'Card'}</span>
+                                    </div>
+                                    {onDetachCard && (
+                                        <button
+                                            onClick={() => onDetachCard(c.id, `p1-hand`)}
+                                            className="bg-orange-600 hover:bg-orange-500 text-white px-1.5 py-0.5 rounded text-[10px] flex-shrink-0"
+                                            title="手札に戻す"
+                                        >
+                                            はがす
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* きぜつ（全トラッシュ） */}
+                    {onTrashWithAttachments && (
+                        <button
+                            onClick={onTrashWithAttachments}
+                            className="w-full p-1.5 bg-red-700 hover:bg-red-600 rounded flex items-center gap-2"
+                        >
+                            <Trash2 size={14} />
+                            きぜつ
+                        </button>
+                    )}
+                </div>
             )}
         </div>
     );
