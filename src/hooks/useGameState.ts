@@ -215,15 +215,26 @@ export function useGameState() {
             };
 
             // 付属カード（エネルギー・道具・進化）も一緒に移動
-            collectAllAttached(cardId, newCards).forEach(ac => {
-                newCards[ac.id] = { ...ac, l: targetLoc };
+            // トラッシュ・山札・手札に移動する場合はスタックを解消（att をクリア）
+            const shouldBreakStack = targetLoc.includes('-trash') || targetLoc.includes('-deck') || targetLoc.includes('-hand');
+            const allAttached = collectAllAttached(cardId, newCards);
+            allAttached.forEach(ac => {
+                newCards[ac.id] = {
+                    ...ac,
+                    l: targetLoc,
+                    ...(shouldBreakStack && { att: undefined }),
+                    ...(targetLoc.includes('-hand') && { f: true }),
+                    ...(targetLoc.includes('-deck') && { f: false }),
+                };
             });
 
-            // 山札配列の調整
+            // 山札配列の調整（付属カードも含む）
             let newDeck = sourceLoc.includes('-deck')
                 ? oldPlayer.d.filter(id => id !== cardId)
                 : [...oldPlayer.d];
-            if (targetLoc.includes('-deck')) newDeck = [...newDeck, cardId];
+            if (targetLoc.includes('-deck')) {
+                newDeck = [...newDeck, cardId, ...allAttached.map(ac => ac.id)];
+            }
 
             return {
                 ...prev,

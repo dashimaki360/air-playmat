@@ -51,5 +51,7 @@ export type DraggableItemData = {
   card: Card;
   sourceArea: AreaId;
   playerId: string;
-  index?: number; 
+  index?: number;
+  /** CardStackのベースカードID。スタック全体を移動するときに使う */
+  stackBaseCardId?: string;
 };

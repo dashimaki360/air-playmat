@@ -60,15 +60,17 @@ export function Board() {
             // Move card
             if (activeData.sourceArea !== targetAreaId) {
                 const pPrefix = activeData.playerId === 'player-1' ? 'p1' : 'p2';
-                
-                const sourceLoc = activeData.sourceArea === 'stadium' 
-                    ? 'stadium' 
+
+                const sourceLoc = activeData.sourceArea === 'stadium'
+                    ? 'stadium'
                     : `${pPrefix}-${activeData.sourceArea}`;
-                const targetLoc = targetAreaId === 'stadium' 
-                    ? 'stadium' 
+                const targetLoc = targetAreaId === 'stadium'
+                    ? 'stadium'
                     : `${pPrefix}-${targetAreaId}`;
-                
-                moveCard(activeData.card.id, sourceLoc, targetLoc);
+
+                // スタックの場合はベースカードを移動（スタック全体が連動して動く）
+                const cardIdToMove = activeData.stackBaseCardId ?? activeData.card.id;
+                moveCard(cardIdToMove, sourceLoc, targetLoc);
             }
         }
     };

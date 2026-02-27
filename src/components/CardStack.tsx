@@ -90,6 +90,7 @@ export function CardStack({ baseCard, attachedCards, area, playerId, index, onUp
                     attachedCards={attachedCards}
                     onDetachCard={onDetachCard}
                     onTrashWithAttachments={onTrashWithAttachments ? () => onTrashWithAttachments(baseCard.id) : undefined}
+                    stackBaseCardId={baseCard.id}
                 />
             </div>
 

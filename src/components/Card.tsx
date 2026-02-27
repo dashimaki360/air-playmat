@@ -28,9 +28,11 @@ interface CardProps {
     onDetachCard?: (cardId: string, targetLoc: string) => void;
     /** きぜつコールバック */
     onTrashWithAttachments?: () => void;
+    /** CardStackのベースカードID。スタック全体ドラッグ時に使う */
+    stackBaseCardId?: string;
 }
 
-export function Card({ card, area, playerId, index, onUpdateStatus, isAttached = false, attachedCount = 0, attachedCards, onDetachCard, onTrashWithAttachments }: CardProps) {
+export function Card({ card, area, playerId, index, onUpdateStatus, isAttached = false, attachedCount = 0, attachedCards, onDetachCard, onTrashWithAttachments, stackBaseCardId }: CardProps) {
     const [menuOpen, setMenuOpen] = useState(false);
 
     const draggableData: DraggableItemData = {
@@ -39,6 +41,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus, isAttached =
         sourceArea: area,
         playerId,
         index,
+        stackBaseCardId,
     };
 
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
