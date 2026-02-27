@@ -336,6 +336,136 @@ describe('useGameState hook', () => {
         });
     });
 
+    // ── getCardsByLocation ───────────────────────────────────────
+    describe('getCardsByLocation', () => {
+        it('指定locationのカードを返す', () => {
+            const { result } = renderHook(() => useGameState());
+            const handCards = result.current.getCardsByLocation('p1-hand');
+            expect(handCards.length).toBe(7);
+            expect(handCards.every(c => c.l === 'p1-hand')).toBe(true);
+        });
+
+        it('att が設定された付属カードは除外される', () => {
+            const { result } = renderHook(() => useGameState());
+            const active = getP1Card(result.current.gameState, 'p1-active');
+            const hand = getP1Card(result.current.gameState, 'p1-hand');
+
+            act(() => { result.current.attachCard(hand.id, active.id); });
+
+            const handCards = result.current.getCardsByLocation('p1-hand');
+            expect(handCards.find(c => c.id === hand.id)).toBeUndefined();
+        });
+
+        it('orderでソートされる', () => {
+            const { result } = renderHook(() => useGameState());
+            const handCards = result.current.getCardsByLocation('p1-hand');
+            for (let i = 1; i < handCards.length; i++) {
+                expect(handCards[i].o).toBeGreaterThanOrEqual(handCards[i - 1].o);
+            }
+        });
+
+        it('p1とp2両方のカードを含む全体から検索する', () => {
+            const { result } = renderHook(() => useGameState());
+            const p2Active = result.current.getCardsByLocation('p2-active');
+            expect(p2Active.length).toBe(1);
+        });
+    });
+
+    // ── getAttachedCards ─────────────────────────────────────────
+    describe('getAttachedCards', () => {
+        it('付属カードがない場合は空配列を返す', () => {
+            const { result } = renderHook(() => useGameState());
+            const active = getP1Card(result.current.gameState, 'p1-active');
+            expect(result.current.getAttachedCards(active.id)).toEqual([]);
+        });
+
+        it('直接付属した1枚を返す', () => {
+            const { result } = renderHook(() => useGameState());
+            const active = getP1Card(result.current.gameState, 'p1-active');
+            const hand = getP1Card(result.current.gameState, 'p1-hand');
+
+            act(() => { result.current.attachCard(hand.id, active.id); });
+
+            const attached = result.current.getAttachedCards(active.id);
+            expect(attached.length).toBe(1);
+            expect(attached[0].id).toBe(hand.id);
+        });
+
+        it('複数枚付属している場合は全て返す', () => {
+            const { result } = renderHook(() => useGameState());
+            const active = getP1Card(result.current.gameState, 'p1-active');
+            const [hand1, hand2] = getP1Cards(result.current.gameState, 'p1-hand');
+
+            act(() => { result.current.attachCard(hand1.id, active.id); });
+            act(() => { result.current.attachCard(hand2.id, active.id); });
+
+            const attached = result.current.getAttachedCards(active.id);
+            expect(attached.length).toBe(2);
+            expect(attached.map(c => c.id)).toContain(hand1.id);
+            expect(attached.map(c => c.id)).toContain(hand2.id);
+        });
+
+        it('進化チェーン（再帰）を辿って全て返す', () => {
+            const { result } = renderHook(() => useGameState());
+            const active = getP1Card(result.current.gameState, 'p1-active');
+            const [evo1, evo2] = getP1Cards(result.current.gameState, 'p1-hand');
+
+            act(() => { result.current.attachCard(evo1.id, active.id); });
+            act(() => { result.current.attachCard(evo2.id, evo1.id); });
+
+            const attached = result.current.getAttachedCards(active.id);
+            expect(attached.length).toBe(2);
+            expect(attached.map(c => c.id)).toContain(evo1.id);
+            expect(attached.map(c => c.id)).toContain(evo2.id);
+        });
+    });
+
+    // ── moveCard 追加ケース ──────────────────────────────────────
+    describe('moveCard (追加ケース)', () => {
+        it('activeスワップ時に既存activeの付属カードも一緒に sourceLoc へ移動する', () => {
+            const { result } = renderHook(() => useGameState());
+            const active = getP1Card(result.current.gameState, 'p1-active');
+            const [hand1, hand2] = getP1Cards(result.current.gameState, 'p1-hand');
+
+            // activeにエネルギー（hand1）を付ける
+            act(() => { result.current.attachCard(hand1.id, active.id); });
+            // hand2をactiveに移動（スワップ発生）
+            act(() => { result.current.moveCard(hand2.id, 'p1-hand', 'p1-active'); });
+
+            // 旧activeはhand2の元の場所（p1-hand）へ
+            expect(result.current.gameState.p1.c[active.id].l).toBe('p1-hand');
+            // 旧activeの付属カード（hand1）も一緒にp1-handへ
+            expect(result.current.gameState.p1.c[hand1.id].l).toBe('p1-hand');
+        });
+
+        it('targetIndex を指定するとその order になる', () => {
+            const { result } = renderHook(() => useGameState());
+            const hand = getP1Card(result.current.gameState, 'p1-hand');
+
+            act(() => { result.current.moveCard(hand.id, 'p1-hand', 'p1-bench', 5); });
+
+            expect(result.current.gameState.p1.c[hand.id].o).toBe(5);
+        });
+
+        it('p2のカードも正しく移動できる', () => {
+            const { result } = renderHook(() => useGameState());
+            const p2Hand = Object.values(result.current.gameState.p2.c).find(c => c.l === 'p2-hand')!;
+
+            act(() => { result.current.moveCard(p2Hand.id, 'p2-hand', 'p2-bench'); });
+
+            expect(result.current.gameState.p2.c[p2Hand.id].l).toBe('p2-bench');
+        });
+
+        it('存在しないcardIdの場合は状態が変わらない', () => {
+            const { result } = renderHook(() => useGameState());
+            const before = result.current.gameState;
+
+            act(() => { result.current.moveCard('non-existent', 'p1-hand', 'p1-bench'); });
+
+            expect(result.current.gameState).toBe(before);
+        });
+    });
+
     // ── returnAllHandToDeck ──────────────────────────────────────
     describe('returnAllHandToDeck', () => {
         it('手札のカードが全て山札に移動する', () => {
