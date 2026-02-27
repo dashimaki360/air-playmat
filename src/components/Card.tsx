@@ -104,7 +104,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus, isAttached =
                         <div className={`relative z-10 p-1 h-full flex flex-col justify-between ${card.imageUrl ? '' : 'bg-white text-slate-900'}`}>
                             {!card.imageUrl && <div className="font-bold text-xs truncate drop-shadow-md">{card.name || 'Card'}</div>}
                             {/* Status Icons */}
-                            {area !== 'deck' && (
+                            {area !== 'deck' && area !== 'trash' && (
                                 <div className="flex flex-wrap gap-0.5 mt-1">
                                     {card.cnd.map((status) => {
                                         const Icon = STATUS_ICONS[status];
@@ -117,7 +117,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus, isAttached =
                                 </div>
                             )}
                             {/* Damage Counters */}
-                            {area !== 'deck' && card.d > 0 && (
+                            {area !== 'deck' && area !== 'trash' && card.d > 0 && (
                                 <div className="bg-red-600 text-white font-bold text-base rounded-full min-w-6 px-1.5 py-0.5 text-center mt-auto self-end shadow-md border border-red-800">
                                     {card.d}
                                 </div>

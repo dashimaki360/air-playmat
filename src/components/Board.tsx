@@ -19,6 +19,7 @@ export function Board() {
     const [activeCardData, setActiveCardData] = useState<DraggableItemData | null>(null);
     const [showDebug, setShowDebug] = useState(false);
     const [showDeckModal, setShowDeckModal] = useState(false);
+    const [showTrashModal, setShowTrashModal] = useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -264,6 +265,17 @@ export function Board() {
 
                         <DroppableArea id="trash" title="Trash" playerId="player-1" className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center">
                             {renderStackedArea(getCardsByLocation('p1-trash'), 'trash')}
+                            {getCardsByLocation('p1-trash').length > 0 && (
+                                <div className="flex gap-1 mt-2 z-30">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setShowTrashModal(true); }}
+                                        className="bg-slate-700 hover:bg-slate-600 text-slate-200 p-2 rounded shadow-md border border-slate-500 flex items-center justify-center transition-colors"
+                                        title="トラッシュを確認"
+                                    >
+                                        <Search size={16} />
+                                    </button>
+                                </div>
+                            )}
                         </DroppableArea>
                     </div>
 
@@ -344,6 +356,40 @@ export function Board() {
                         </div>
                         <div className="p-3 border-t border-slate-700 text-sm text-slate-400 text-center bg-slate-900/50 rounded-b-xl">
                             ※ 現在、山札の順番はそのまま表示されています。カードをドラッグして動かすことはできません。
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Trash Viewer Modal */}
+            {showTrashModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+                    <div className="bg-slate-800 border-2 border-slate-600 rounded-xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl">
+                        <div className="flex justify-between items-center p-4 border-b border-slate-700 bg-slate-900/50 rounded-t-xl">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <Search className="text-slate-400" />
+                                トラッシュの確認 ({getCardsByLocation('p1-trash').length}枚)
+                            </h2>
+                            <button
+                                onClick={() => setShowTrashModal(false)}
+                                className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-1.5 rounded font-bold transition-colors"
+                            >
+                                閉じる
+                            </button>
+                        </div>
+                        <div className="p-4 overflow-y-auto flex-1 bg-slate-900/20">
+                            <div className="flex flex-wrap gap-3 justify-center">
+                                {getCardsByLocation('p1-trash').map((c) => (
+                                    <div key={c.id}>
+                                        <Card
+                                            card={c}
+                                            area="trash"
+                                            playerId="player-1"
+                                            onUpdateStatus={() => {}}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
