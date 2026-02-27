@@ -165,444 +165,286 @@ export function useGameState() {
 
     const moveCard = (
         cardId: string,
-        sourceLoc: string, // e.g., "p1-hand"
-        targetLoc: string, // e.g., "p1-active"
+        sourceLoc: string,
+        targetLoc: string,
         targetIndex?: number
     ) => {
         setGameState((prev) => {
-            const newState = { ...prev };
-            
-            // Determine which player owns the card
-            let pPlayer = 'p1';
-            if (prev.p2.c[cardId]) pPlayer = 'p2';
-            else if (!prev.p1.c[cardId]) return prev;
+            const pPlayer = prev.p2.c[cardId] ? 'p2' : prev.p1.c[cardId] ? 'p1' : null;
+            if (!pPlayer) return prev;
 
-            const targetPlayerObj = pPlayer as 'p1' | 'p2';
-            
-            newState[targetPlayerObj] = {
-                ...prev[targetPlayerObj],
-                c: { ...prev[targetPlayerObj].c },
-                d: [...prev[targetPlayerObj].d]
-            };
-            
-            const pState = newState[targetPlayerObj];
-            const cardToMove = pState.c[cardId];
+            const oldPlayer = prev[pPlayer];
+            const cardToMove = oldPlayer.c[cardId];
+            const newCards = { ...oldPlayer.c };
 
-            // Optional: スワップロジックの適応（Activeに既にカードがある場合、元の配置に戻す）
+            // スワップロジック（Activeに既にカードがある場合、元の場所に押し戻す）
             if (targetLoc.includes('-active')) {
-                // att されていない独立カードのみスワップ対象
-                const existingActive = Object.values(pState.c).find(c => c.l === targetLoc && !c.att);
+                const existingActive = Object.values(newCards).find(c => c.l === targetLoc && !c.att);
                 if (existingActive && existingActive.id !== cardId) {
-                    pState.c[existingActive.id] = {
-                        ...existingActive,
-                        l: sourceLoc, // 元の場所に押し戻す
-                        o: 999 // ひとまず末尾へ
-                    };
-                    // スワップ対象のカードに付属しているカードも一緒に移動
-                    const swapAttached = Object.values(pState.c).filter(c => c.att && findRootCardId(c, pState.c) === existingActive.id);
-                    swapAttached.forEach(ac => {
-                        pState.c[ac.id] = { ...ac, l: sourceLoc };
-                    });
+                    newCards[existingActive.id] = { ...existingActive, l: sourceLoc, o: 999 };
+                    Object.values(newCards)
+                        .filter(c => c.att && findRootCardId(c, newCards) === existingActive.id)
+                        .forEach(ac => { newCards[ac.id] = { ...ac, l: sourceLoc }; });
                 }
             }
 
-            // カードの移動先とOrderを更新
-            const targetCards = Object.values(pState.c).filter(c => c.l === targetLoc);
-            const newOrder = targetIndex !== undefined ? targetIndex : targetCards.length;
+            // 移動先のorder計算
+            const newOrder = targetIndex !== undefined
+                ? targetIndex
+                : Object.values(newCards).filter(c => c.l === targetLoc).length;
 
-            pState.c[cardId] = {
+            // カードの移動
+            newCards[cardId] = {
                 ...cardToMove,
                 l: targetLoc,
                 o: newOrder,
-                // 移動先に応じた表裏・状態異常の自動更新
                 ...(targetLoc.includes('-hand') && { f: true }),
                 ...(targetLoc.includes('-deck') && { f: false }),
                 ...(targetLoc.includes('-bench') && { cnd: [] }),
             };
 
             // 付属カード（エネルギー・道具・進化）も一緒に移動
-            const attachedCards = collectAllAttached(cardId, pState.c);
-            attachedCards.forEach(ac => {
-                pState.c[ac.id] = { ...ac, l: targetLoc };
+            collectAllAttached(cardId, newCards).forEach(ac => {
+                newCards[ac.id] = { ...ac, l: targetLoc };
             });
 
-            // 山札配列の調整処理
-            if (sourceLoc.includes('-deck')) {
-                pState.d = pState.d.filter(id => id !== cardId);
-            }
-            if (targetLoc.includes('-deck')) {
-                pState.d.push(cardId);
-            }
+            // 山札配列の調整
+            let newDeck = sourceLoc.includes('-deck')
+                ? oldPlayer.d.filter(id => id !== cardId)
+                : [...oldPlayer.d];
+            if (targetLoc.includes('-deck')) newDeck = [...newDeck, cardId];
 
-            newState.m = {
-                ...prev.m,
-                a: `${pPlayer}-move-${cardId}`
+            return {
+                ...prev,
+                [pPlayer]: { ...oldPlayer, c: newCards, d: newDeck },
+                m: { ...prev.m, a: `${pPlayer}-move-${cardId}` },
             };
-
-            return newState;
         });
     };
 
     // カードを別のカードに重ねる（進化・エネルギー・道具付与）
     const attachCard = (cardId: string, targetCardId: string) => {
         setGameState((prev) => {
-            // Determine which player owns the card
-            let pPlayer = 'p1';
-            if (prev.p2.c[cardId]) pPlayer = 'p2';
-            else if (!prev.p1.c[cardId]) return prev;
+            const pPlayer = prev.p2.c[cardId] ? 'p2' : prev.p1.c[cardId] ? 'p1' : null;
+            if (!pPlayer) return prev;
 
-            const targetPlayerObj = pPlayer as 'p1' | 'p2';
-            const newState = { ...prev };
-
-            newState[targetPlayerObj] = {
-                ...prev[targetPlayerObj],
-                c: { ...prev[targetPlayerObj].c },
-                d: [...prev[targetPlayerObj].d]
-            };
-
-            const pState = newState[targetPlayerObj];
-            const cardToAttach = pState.c[cardId];
-            const targetCard = pState.c[targetCardId];
-
+            const oldPlayer = prev[pPlayer];
+            const cardToAttach = oldPlayer.c[cardId];
+            const targetCard = oldPlayer.c[targetCardId];
             if (!cardToAttach || !targetCard) return prev;
 
-            // カードの att と location を更新
-            pState.c[cardId] = {
-                ...cardToAttach,
-                att: targetCardId,
-                l: targetCard.l, // 親カードと同じ location に
-                f: true, // 表向き
+            const newDeck = cardToAttach.l.includes('-deck')
+                ? oldPlayer.d.filter(id => id !== cardId)
+                : [...oldPlayer.d];
+
+            return {
+                ...prev,
+                [pPlayer]: {
+                    ...oldPlayer,
+                    d: newDeck,
+                    c: {
+                        ...oldPlayer.c,
+                        [cardId]: { ...cardToAttach, att: targetCardId, l: targetCard.l, f: true },
+                    },
+                },
+                m: { ...prev.m, a: `${pPlayer}-attach-${cardId}-to-${targetCardId}` },
             };
-
-            // 山札から取り除く
-            if (cardToAttach.l.includes('-deck')) {
-                pState.d = pState.d.filter(id => id !== cardId);
-            }
-
-            newState.m = {
-                ...prev.m,
-                a: `${pPlayer}-attach-${cardId}-to-${targetCardId}`
-            };
-
-            return newState;
         });
     };
 
     // 重ねたカードを外して別の場所へ移動
     const detachCard = (cardId: string, targetLoc: string) => {
         setGameState((prev) => {
-            let pPlayer = 'p1';
-            if (prev.p2.c[cardId]) pPlayer = 'p2';
-            else if (!prev.p1.c[cardId]) return prev;
+            const pPlayer = prev.p2.c[cardId] ? 'p2' : prev.p1.c[cardId] ? 'p1' : null;
+            if (!pPlayer) return prev;
 
-            const targetPlayerObj = pPlayer as 'p1' | 'p2';
-            const newState = { ...prev };
-
-            newState[targetPlayerObj] = {
-                ...prev[targetPlayerObj],
-                c: { ...prev[targetPlayerObj].c },
-                d: [...prev[targetPlayerObj].d]
-            };
-
-            const pState = newState[targetPlayerObj];
-            const card = pState.c[cardId];
+            const oldPlayer = prev[pPlayer];
+            const card = oldPlayer.c[cardId];
             if (!card) return prev;
 
-            // 移動先のorder計算
-            const targetCards = Object.values(pState.c).filter(c => c.l === targetLoc && !c.att);
-            const newOrder = targetCards.length;
+            const newOrder = Object.values(oldPlayer.c).filter(c => c.l === targetLoc && !c.att).length;
+            const newDeck = targetLoc.includes('-deck')
+                ? [...oldPlayer.d, cardId]
+                : [...oldPlayer.d];
 
-            pState.c[cardId] = {
-                ...card,
-                att: undefined,
-                l: targetLoc,
-                o: newOrder,
+            return {
+                ...prev,
+                [pPlayer]: {
+                    ...oldPlayer,
+                    d: newDeck,
+                    c: {
+                        ...oldPlayer.c,
+                        [cardId]: {
+                            ...card,
+                            att: undefined,
+                            l: targetLoc,
+                            o: newOrder,
+                            ...(targetLoc.includes('-deck') && { f: false }),
+                            ...(targetLoc.includes('-hand') && { f: true }),
+                        },
+                    },
+                },
+                m: { ...prev.m, a: `${pPlayer}-detach-${cardId}` },
             };
-
-            // 山札への移動処理
-            if (targetLoc.includes('-deck')) {
-                pState.d.push(cardId);
-                pState.c[cardId] = { ...pState.c[cardId], f: false };
-            }
-            if (targetLoc.includes('-hand')) {
-                pState.c[cardId] = { ...pState.c[cardId], f: true };
-            }
-
-            newState.m = {
-                ...prev.m,
-                a: `${pPlayer}-detach-${cardId}`
-            };
-
-            return newState;
         });
     };
 
     // ポケモンと付いているカード全てをトラッシュに送る（きぜつ処理）
     const trashWithAttachments = (cardId: string) => {
         setGameState((prev) => {
-            let pPlayer = 'p1';
-            if (prev.p2.c[cardId]) pPlayer = 'p2';
-            else if (!prev.p1.c[cardId]) return prev;
+            const pPlayer = prev.p2.c[cardId] ? 'p2' : prev.p1.c[cardId] ? 'p1' : null;
+            if (!pPlayer) return prev;
 
-            const targetPlayerObj = pPlayer as 'p1' | 'p2';
-            const newState = { ...prev };
-
-            newState[targetPlayerObj] = {
-                ...prev[targetPlayerObj],
-                c: { ...prev[targetPlayerObj].c },
-                d: [...prev[targetPlayerObj].d]
-            };
-
-            const pState = newState[targetPlayerObj];
+            const oldPlayer = prev[pPlayer];
             const trashLoc = `${pPlayer}-trash`;
-
-            // 付属カードを全て収集（再帰的）
-            const allAttached = collectAllAttached(cardId, pState.c);
+            const allAttached = collectAllAttached(cardId, oldPlayer.c);
             const allCardIds = [cardId, ...allAttached.map(c => c.id)];
+            const trashOffset = Object.values(oldPlayer.c).filter(c => c.l === trashLoc).length;
 
-            // 全てトラッシュに移動
-            const trashCards = Object.values(pState.c).filter(c => c.l === trashLoc);
-            let trashOrder = trashCards.length;
-
-            allCardIds.forEach(id => {
-                if (pState.c[id]) {
-                    pState.c[id] = {
-                        ...pState.c[id],
+            const newCards = { ...oldPlayer.c };
+            allCardIds.forEach((id, i) => {
+                if (newCards[id]) {
+                    newCards[id] = {
+                        ...newCards[id],
                         l: trashLoc,
                         att: undefined,
-                        f: true, // トラッシュは表向き
-                        d: 0, // ダメージリセット
-                        cnd: [], // 状態異常リセット
-                        o: trashOrder++,
+                        f: true,
+                        d: 0,
+                        cnd: [],
+                        o: trashOffset + i,
                     };
-                    // 山札から取り除く
-                    pState.d = pState.d.filter(dId => dId !== id);
                 }
             });
 
-            newState.m = {
-                ...prev.m,
-                a: `${pPlayer}-trash-${cardId}-with-attachments`
+            return {
+                ...prev,
+                [pPlayer]: {
+                    ...oldPlayer,
+                    d: oldPlayer.d.filter(id => !allCardIds.includes(id)),
+                    c: newCards,
+                },
+                m: { ...prev.m, a: `${pPlayer}-trash-${cardId}-with-attachments` },
             };
-
-            return newState;
         });
     };
 
     const updateCardStatus = (cardId: string, updater: (c: Card) => Card) => {
         setGameState((prev) => {
-            let pPlayer = 'p1';
-            if (prev.p2.c[cardId]) pPlayer = 'p2';
-            else if (!prev.p1.c[cardId]) return prev;
+            const pPlayer = prev.p2.c[cardId] ? 'p2' : prev.p1.c[cardId] ? 'p1' : null;
+            if (!pPlayer) return prev;
 
-            const targetPlayer = pPlayer as 'p1' | 'p2';
-            const newState = { ...prev };
-            
-            newState[targetPlayer] = {
-                ...newState[targetPlayer],
-                c: { ...newState[targetPlayer].c }
+            const oldPlayer = prev[pPlayer];
+            return {
+                ...prev,
+                [pPlayer]: {
+                    ...oldPlayer,
+                    c: { ...oldPlayer.c, [cardId]: updater(oldPlayer.c[cardId]) },
+                },
             };
-            
-            newState[targetPlayer].c[cardId] = updater(newState[targetPlayer].c[cardId]);
-            return newState;
         });
     };
 
     const returnToDeck = (cardId: string, bottom: boolean = false, shuffleAfter: boolean = false) => {
         setGameState((prev) => {
-            let pPlayer = 'p1';
-            if (prev.p2.c[cardId]) pPlayer = 'p2';
-            else if (!prev.p1.c[cardId]) return prev;
+            const pPlayer = prev.p2.c[cardId] ? 'p2' : prev.p1.c[cardId] ? 'p1' : null;
+            if (!pPlayer) return prev;
 
-            const targetPlayer = pPlayer as 'p1' | 'p2';
-            const newState = { ...prev };
-            
-            newState[targetPlayer] = {
-                ...newState[targetPlayer],
-                c: { ...newState[targetPlayer].c },
-                d: [...newState[targetPlayer].d]
-            };
-            
-            const pState = newState[targetPlayer];
-            const cardToReturn = pState.c[cardId];
-
+            const oldPlayer = prev[pPlayer];
+            const cardToReturn = oldPlayer.c[cardId];
             if (!cardToReturn) return prev;
 
-            // Remove card from its current array (like hand) handled by state update
-            
-            // Add to deck
-            if (bottom) {
-                pState.d.unshift(cardId); // Add to bottom (index 0)
-            } else {
-                pState.d.push(cardId); // Add to top (end of array)
-            }
+            // bottom=true → 山札の一番下（配列先頭）、false → 一番上（配列末尾）
+            let newDeck = bottom ? [cardId, ...oldPlayer.d] : [...oldPlayer.d, cardId];
+            if (shuffleAfter) newDeck = shuffle(newDeck);
 
-            pState.c[cardId] = {
-                ...cardToReturn,
-                l: `${targetPlayer}-deck`,
-                f: false,
-                cnd: [] // Clear status conditions just in case
-            };
-
-            // Re-evaluate order of all cards in deck
-            pState.d.forEach((id, index) => {
-                if (pState.c[id]) {
-                     pState.c[id] = {
-                        ...pState.c[id],
-                        o: index
-                     }
-                }
+            const newCards = { ...oldPlayer.c, [cardId]: { ...cardToReturn, l: `${pPlayer}-deck`, f: false, cnd: [] } };
+            newDeck.forEach((id, index) => {
+                if (newCards[id]) newCards[id] = { ...newCards[id], o: index };
             });
 
-            if (shuffleAfter) {
-                pState.d = shuffle(pState.d);
-                pState.d.forEach((id, index) => {
-                    if (pState.c[id]) {
-                         pState.c[id] = {
-                            ...pState.c[id],
-                            o: index
-                         }
-                    }
-                });
-            }
-
-            newState.m = {
-                ...prev.m,
-                a: `${pPlayer}-return-deck-${cardId}`
+            return {
+                ...prev,
+                [pPlayer]: { ...oldPlayer, d: newDeck, c: newCards },
+                m: { ...prev.m, a: `${pPlayer}-return-deck-${cardId}` },
             };
-
-            return newState;
         });
     };
 
     const drawCard = (playerId: string) => {
         setGameState((prev) => {
             const pPlayer = playerId === 'p1' || playerId === 'player-1' ? 'p1' : 'p2';
-            const newState = { ...prev };
-            newState[pPlayer] = {
-                ...newState[pPlayer],
-                c: { ...newState[pPlayer].c },
-                d: [...newState[pPlayer].d]
-            };
-            const pState = newState[pPlayer];
+            const oldPlayer = prev[pPlayer];
+            if (oldPlayer.d.length === 0) return prev;
 
-            if (pState.d.length === 0) return prev;
-
-            // Get top card ID from deck array
-            const topCardId = pState.d.pop();
-            if (!topCardId) return prev;
-
-            const cardToDraw = pState.c[topCardId];
+            const newDeck = [...oldPlayer.d];
+            const topCardId = newDeck.pop()!;
+            const cardToDraw = oldPlayer.c[topCardId];
             if (!cardToDraw) return prev;
 
-            // Use getCardsByLocation logic to find current hand size for ordering
-            const handCards = Object.values(pState.c).filter(c => c.l === `${pPlayer}-hand`);
-            const newOrder = handCards.length;
+            const handSize = Object.values(oldPlayer.c).filter(c => c.l === `${pPlayer}-hand`).length;
 
-            pState.c[topCardId] = {
-                ...cardToDraw,
-                l: `${pPlayer}-hand`,
-                o: newOrder,
-                f: true // Face up in hand
+            return {
+                ...prev,
+                [pPlayer]: {
+                    ...oldPlayer,
+                    d: newDeck,
+                    c: {
+                        ...oldPlayer.c,
+                        [topCardId]: { ...cardToDraw, l: `${pPlayer}-hand`, o: handSize, f: true },
+                    },
+                },
+                m: { ...prev.m, a: `${pPlayer}-draw-${topCardId}` },
             };
-
-            newState.m = {
-                ...prev.m,
-                a: `${pPlayer}-draw-${topCardId}`
-            };
-
-            return newState;
         });
     };
 
     const shuffleDeck = (playerId: string) => {
         setGameState((prev) => {
             const pPlayer = playerId === 'p1' || playerId === 'player-1' ? 'p1' : 'p2';
-            const newState = { ...prev };
-            newState[pPlayer] = {
-                ...newState[pPlayer],
-                c: { ...newState[pPlayer].c },
-                d: [...newState[pPlayer].d]
-            };
-            const pState = newState[pPlayer];
+            const oldPlayer = prev[pPlayer];
+            if (oldPlayer.d.length === 0) return prev;
 
-            if (pState.d.length === 0) return prev;
-
-            // Shuffle the deck array
-            const newDeck = shuffle(pState.d);
-            pState.d = newDeck;
-
-            // Update order (o) for cards in the deck
+            const newDeck = shuffle(oldPlayer.d);
+            const newCards = { ...oldPlayer.c };
             newDeck.forEach((cardId, index) => {
-                if (pState.c[cardId]) {
-                    pState.c[cardId] = {
-                        ...pState.c[cardId],
-                        // Ensure a new object is created
-                        id: cardId, // just assigning an existing property safely to force a new object ref if needed, though ... spread already does it
-                        o: index
-                    };
-                }
+                if (newCards[cardId]) newCards[cardId] = { ...newCards[cardId], o: index };
             });
 
-            newState.m = {
-                ...prev.m,
-                a: `${pPlayer}-shuffle-deck`
+            return {
+                ...prev,
+                [pPlayer]: { ...oldPlayer, d: newDeck, c: newCards },
+                m: { ...prev.m, a: `${pPlayer}-shuffle-deck` },
             };
-
-            return newState;
         });
     };
 
     const returnAllHandToDeck = (playerId: string, bottom: boolean = false, shuffleAfter: boolean = false) => {
         setGameState((prev) => {
             const pPlayer = playerId === 'p1' || playerId === 'player-1' ? 'p1' : 'p2';
-            const newState = { ...prev };
-
-            newState[pPlayer] = {
-                ...newState[pPlayer],
-                c: { ...newState[pPlayer].c },
-                d: [...newState[pPlayer].d]
-            };
-
-            const pState = newState[pPlayer];
+            const oldPlayer = prev[pPlayer];
             const handLoc = `${pPlayer}-hand`;
-
-            // Find all cards in hand
-            const handCardIds = Object.keys(pState.c).filter(id => pState.c[id].l === handLoc);
+            const handCardIds = Object.keys(oldPlayer.c).filter(id => oldPlayer.c[id].l === handLoc);
             if (handCardIds.length === 0) return prev;
 
-            // Move each hand card to deck
-            handCardIds.forEach(cardId => {
-                if (bottom) {
-                    pState.d.unshift(cardId);
-                } else {
-                    pState.d.push(cardId);
-                }
-                pState.c[cardId] = {
-                    ...pState.c[cardId],
-                    l: `${pPlayer}-deck`,
-                    f: false,
-                    d: 0,
-                    cnd: []
-                };
+            // bottom=true → 手札を配列先頭（山札の下）へ、false → 配列末尾（山札の上）へ
+            let newDeck = bottom
+                ? [...handCardIds, ...oldPlayer.d]
+                : [...oldPlayer.d, ...handCardIds];
+            if (shuffleAfter) newDeck = shuffle(newDeck);
+
+            const newCards = { ...oldPlayer.c };
+            handCardIds.forEach(id => {
+                newCards[id] = { ...newCards[id], l: `${pPlayer}-deck`, f: false, d: 0, cnd: [] };
+            });
+            newDeck.forEach((id, index) => {
+                if (newCards[id]) newCards[id] = { ...newCards[id], o: index };
             });
 
-            // Re-evaluate order
-            if (shuffleAfter) {
-                pState.d = shuffle(pState.d);
-            }
-            pState.d.forEach((id, index) => {
-                if (pState.c[id]) {
-                    pState.c[id] = { ...pState.c[id], o: index };
-                }
-            });
-
-            newState.m = {
-                ...prev.m,
-                a: `${pPlayer}-return-all-hand`
+            return {
+                ...prev,
+                [pPlayer]: { ...oldPlayer, d: newDeck, c: newCards },
+                m: { ...prev.m, a: `${pPlayer}-return-all-hand` },
             };
-
-            return newState;
         });
     };
 
