@@ -102,58 +102,43 @@ export function CardStack({ baseCard, attachedCards, area, playerId, index, onUp
 }
 
 /**
- * 進化チェーンの最上位カードを見つける
- * baseCard → 進化1 → 進化2 のチェーンで、最上位を返す
+ * 進化チェーン [baseCard, evo1, evo2, ...] を返す共通ヘルパー。
+ *
+ * 複数のカードが同じポケモンに att されている場合（進化カードとエネルギーが混在）、
+ * 自身も他カードの att 先になっているカード（チェーン中間）を優先的に進化として扱う。
+ * それでも判定できない場合は最初に見つかったカードを選ぶ。
  */
-function findTopEvolution(baseCard: CardType, attachedCards: CardType[]): CardType {
-    let current = baseCard;
-    let found = true;
-    while (found) {
-        found = false;
-        for (const c of attachedCards) {
-            if (c.att === current.id) {
-                // このカードの上にさらに重なっているカードがあるなら、それは進化カード
-                const hasChild = attachedCards.some(child => child.att === c.id);
-                if (hasChild || !attachedCards.some(other => other.att === c.id && other.id !== c.id)) {
-                    // c.att が current のカードで、かつそれが進化チェーンの一部かチェック
-                    // 簡単な判定: att が直前のカードID で、かつ他のカードの att にもなっている = 進化チェーン
-                    current = c;
-                    found = true;
-                    break;
-                }
-            }
+function buildEvolutionChain(baseCard: CardType, attachedCards: CardType[]): CardType[] {
+    // cardId → そのカードに att されているカード一覧
+    const childrenOf = new Map<string, CardType[]>();
+    for (const c of attachedCards) {
+        if (c.att) {
+            if (!childrenOf.has(c.att)) childrenOf.set(c.att, []);
+            childrenOf.get(c.att)!.push(c);
         }
     }
-    return current;
+
+    const chain: CardType[] = [baseCard];
+    let current = baseCard;
+    while (true) {
+        const children = childrenOf.get(current.id) ?? [];
+        if (children.length === 0) break;
+        // 自身が親になっているカード（中間進化）を優先。なければ先頭を選ぶ
+        const next = children.find(c => childrenOf.has(c.id)) ?? children[0];
+        chain.push(next);
+        current = next;
+    }
+    return chain;
 }
 
-/**
- * 進化チェーンに属するカードIDのセットを返す（baseCard自体は含まない）
- */
+/** 進化チェーンの最上位カードを返す */
+function findTopEvolution(baseCard: CardType, attachedCards: CardType[]): CardType {
+    const chain = buildEvolutionChain(baseCard, attachedCards);
+    return chain[chain.length - 1];
+}
+
+/** 進化チェーンに属するカードIDのセットを返す（baseCard自体は含まない） */
 function getEvolutionChainIds(baseCard: CardType, attachedCards: CardType[]): Set<string> {
-    const ids = new Set<string>();
-    let current = baseCard;
-    let found = true;
-    while (found) {
-        found = false;
-        for (const c of attachedCards) {
-            if (c.att === current.id && !ids.has(c.id)) {
-                // c がさらに誰かの att 先になっている → 進化チェーンの中間
-                const isMiddle = attachedCards.some(other => other.att === c.id);
-                if (isMiddle) {
-                    ids.add(c.id);
-                    current = c;
-                    found = true;
-                    break;
-                }
-                // c がチェーンの最上位（誰の att 先にもなっていない）→ これが最上位進化
-                if (!isMiddle) {
-                    ids.add(c.id);
-                    found = false;
-                    break;
-                }
-            }
-        }
-    }
-    return ids;
+    const chain = buildEvolutionChain(baseCard, attachedCards);
+    return new Set(chain.slice(1).map(c => c.id));
 }
