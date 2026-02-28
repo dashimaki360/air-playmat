@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDeckList } from '../src/lib/pokemon-tcg/deck-scraper';
+import { getDeckList } from '../src/lib/pokemon-tcg/deck-scraper.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORSを許可（必要に応じて制限可能）
