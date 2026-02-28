@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/getDeck.ts": {
+      "includeFiles": "src/lib/pokemon-tcg/**"
+    }
+  }
+}
