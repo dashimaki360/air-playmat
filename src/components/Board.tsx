@@ -17,11 +17,15 @@ import { GameLog } from './GameLog';
 import { CoinToss } from './CoinToss';
 import { CardListModal } from './CardListModal';
 import type { CoinResult, CoinTossHandle } from './CoinToss';
-import type { Card as CardType, AreaId, DraggableItemData } from '../types/game';
+import type { Card as CardType, AreaId, DraggableItemData, CardInfo } from '../types/game';
 import { Search, Shuffle } from 'lucide-react';
 
-export function Board() {
-    const { gameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck } = useGameState();
+type BoardProps = {
+    deckCards?: CardInfo[];
+};
+
+export function Board({ deckCards }: BoardProps) {
+    const { gameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck } = useGameState(deckCards);
     const { logs, addLog } = useGameLog();
     const [activeCardData, setActiveCardData] = useState<DraggableItemData | null>(null);
     const [showDebug, setShowDebug] = useState(false);
@@ -180,7 +184,7 @@ export function Board() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div className="min-h-screen bg-slate-900 text-slate-100 p-2 md:p-6 w-full max-w-7xl mx-auto flex flex-col gap-4 overflow-x-hidden">
+            <div className="bg-slate-900 text-slate-100 p-2 md:p-6 w-full max-w-7xl mx-auto flex flex-col gap-4 overflow-x-hidden">
                 {/* Header */}
                 <div className="flex justify-between items-center py-2 px-4 bg-slate-800 rounded-lg shadow-sm border border-slate-700">
                     <h1 className="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">

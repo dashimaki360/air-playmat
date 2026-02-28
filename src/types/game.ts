@@ -45,6 +45,14 @@ export type GameState = {
   p2: PlayerState;
 };
 
+// デッキインポート用の型
+export type { CardInfo } from '../lib/pokemon-tcg/deck-scraper';
+
+export type DeckData = {
+  code: string;
+  cards: import('../lib/pokemon-tcg/deck-scraper').CardInfo[];
+};
+
 // For dnd-kit drop payloads to identify where a Card comes from and goes to
 export type DraggableItemData = {
   type: 'card';

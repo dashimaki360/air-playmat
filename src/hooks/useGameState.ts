@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { GameState, Card, CardType, PlayerState } from '../types/game';
+import { useState, useCallback } from 'react';
+import type { GameState, Card, CardType, PlayerState, CardInfo } from '../types/game';
 
 import defaultDeck from '../data/defaultDeck.json';
 
@@ -62,11 +62,12 @@ const findRootCardId = (card: Card, cards: Record<string, Card>): string => {
 };
 
 // Flatten deck data
-const createFlatDeck = (idPrefix: string): Card[] => {
+const createFlatDeck = (idPrefix: string, deckCards?: CardInfo[]): Card[] => {
+    const source = deckCards || defaultDeck.cards;
     let flatCards: Card[] = [];
-    defaultDeck.cards.forEach((ci) => {
+    source.forEach((ci) => {
         for (let i = 0; i < ci.count; i++) {
-            flatCards.push(createMockCard('', ci.name, '', 0, ci.imageUrl, CARD_TYPE_MAP[ci.type]));
+            flatCards.push(createMockCard('', ci.name, '', 0, ci.imageUrl, CARD_TYPE_MAP[ci.type || '']));
         }
     });
     // Shuffle the deck initially
@@ -80,7 +81,7 @@ const createFlatDeck = (idPrefix: string): Card[] => {
 };
 
 
-const generateInitialPlayer = (playerPrefix: string, playerName: string): PlayerState => {
+const generateInitialPlayer = (playerPrefix: string, playerName: string, deckCards?: CardInfo[]): PlayerState => {
     const p: PlayerState = {
         n: playerName,
         d: [],
@@ -89,7 +90,7 @@ const generateInitialPlayer = (playerPrefix: string, playerName: string): Player
 
     const add = (c: Card) => { p.c[c.id] = c; };
 
-    const deckCards = createFlatDeck(playerPrefix);
+    const allCards = createFlatDeck(playerPrefix, deckCards);
     
     // Distribute 60 cards
     // Active: 1, Bench: 0, Hand: 7, Prize: 6, Deck: 46 
@@ -97,31 +98,31 @@ const generateInitialPlayer = (playerPrefix: string, playerName: string): Player
     let currentIdx = 0;
 
     // Active (1)
-    if (currentIdx < deckCards.length) {
-        const c = deckCards[currentIdx++];
+    if (currentIdx < allCards.length) {
+        const c = allCards[currentIdx++];
         add({ ...c, l: `${playerPrefix}-active`, o: 0, f: true });
     }
 
     // Hand (7)
     for (let i = 0; i < 7; i++) {
-        if (currentIdx < deckCards.length) {
-            const c = deckCards[currentIdx++];
+        if (currentIdx < allCards.length) {
+            const c = allCards[currentIdx++];
             add({ ...c, l: `${playerPrefix}-hand`, o: i, f: true });
         }
     }
 
     // Prize (6)
     for (let i = 0; i < 6; i++) {
-        if (currentIdx < deckCards.length) {
-            const c = deckCards[currentIdx++];
+        if (currentIdx < allCards.length) {
+            const c = allCards[currentIdx++];
             add({ ...c, l: `${playerPrefix}-prize`, o: i, f: false });
         }
     }
 
     // Deck (remaining)
     let deckOrder = 0;
-    while(currentIdx < deckCards.length) {
-        const c = deckCards[currentIdx++];
+    while(currentIdx < allCards.length) {
+        const c = allCards[currentIdx++];
         p.d.push(c.id);
         add({ ...c, l: `${playerPrefix}-deck`, o: deckOrder++, f: false });
     }
@@ -129,19 +130,23 @@ const generateInitialPlayer = (playerPrefix: string, playerName: string): Player
     return p;
 };
 
-const initialMockState: GameState = {
+const createInitialState = (deckCards?: CardInfo[]): GameState => ({
     roomId: 'mock-room-1',
     m: {
         t: 'p1',
         s: 'playing',
         a: '',
     },
-    p1: generateInitialPlayer('p1', 'Player 1'),
-    p2: generateInitialPlayer('p2', 'Player 2 (Opponent)'),
-};
+    p1: generateInitialPlayer('p1', 'Player 1', deckCards),
+    p2: generateInitialPlayer('p2', 'Player 2 (Opponent)', deckCards),
+});
 
-export function useGameState() {
-    const [gameState, setGameState] = useState<GameState>(initialMockState);
+export function useGameState(deckCards?: CardInfo[]) {
+    const [gameState, setGameState] = useState<GameState>(() => createInitialState(deckCards));
+
+    const resetGame = useCallback((newDeckCards?: CardInfo[]) => {
+        setGameState(createInitialState(newDeckCards));
+    }, []);
 
     // Get cards grouped/sorted by location for easy UI rendering
     // att が設定されているカード（誰かに重ねられているカード）は除外し、独立カードのみ返す
@@ -470,5 +475,5 @@ export function useGameState() {
         });
     };
 
-    return { gameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck };
+    return { gameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck, resetGame };
 }
