@@ -1,12 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 
 export type CoinResult = 'heads' | 'tails';
+
+export type CoinTossHandle = {
+    toss: () => void;
+};
 
 type CoinTossProps = {
     onResult: (result: CoinResult) => void;
 };
 
-export function CoinToss({ onResult }: CoinTossProps) {
+export const CoinToss = forwardRef<CoinTossHandle, CoinTossProps>(function CoinToss({ onResult }, ref) {
     const [isFlipping, setIsFlipping] = useState(false);
     const [result, setResult] = useState<CoinResult | null>(null);
 
@@ -23,6 +27,10 @@ export function CoinToss({ onResult }: CoinTossProps) {
             onResult(coinResult);
         }, 800);
     }, [isFlipping, onResult]);
+
+    useImperativeHandle(ref, () => ({
+        toss: handleToss,
+    }), [handleToss]);
 
     return (
         <div className="flex items-center gap-2">
@@ -54,4 +62,4 @@ export function CoinToss({ onResult }: CoinTossProps) {
             )}
         </div>
     );
-}
+});

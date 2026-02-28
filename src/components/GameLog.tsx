@@ -3,6 +3,8 @@ import type { GameLogEntry } from '../hooks/useGameLog';
 
 type GameLogProps = {
     logs: GameLogEntry[];
+    isOpen?: boolean;
+    onToggle?: () => void;
 };
 
 const playerLabel = (playerId: string | null) => {
@@ -15,13 +17,15 @@ const playerColor = (playerId: string | null) => {
     return playerId === 'p1' ? 'text-blue-400' : 'text-red-400';
 };
 
-export function GameLog({ logs }: GameLogProps) {
-    const [isOpen, setIsOpen] = useState(true);
+export function GameLog({ logs, isOpen: controlledIsOpen, onToggle }: GameLogProps) {
+    const [internalIsOpen, setInternalIsOpen] = useState(true);
+    const isOpen = controlledIsOpen ?? internalIsOpen;
+    const handleToggle = onToggle ?? (() => setInternalIsOpen(prev => !prev));
 
     return (
         <div className="bg-slate-800/90 border border-slate-700 rounded-lg shadow-lg overflow-hidden">
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={handleToggle}
                 className="w-full flex items-center justify-between px-3 py-2 bg-slate-700/50 hover:bg-slate-700 transition-colors text-sm font-bold text-slate-300"
             >
                 <span>ログ ({logs.length})</span>

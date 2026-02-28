@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
     DndContext,
     DragOverlay,
@@ -9,13 +9,14 @@ import {
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useGameState } from '../hooks/useGameState';
 import { useGameLog } from '../hooks/useGameLog';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { Card } from './Card';
 import { CardStack } from './CardStack';
 import { DroppableArea } from './DroppableArea';
 import { GameLog } from './GameLog';
 import { CoinToss } from './CoinToss';
 import { CardListModal } from './CardListModal';
-import type { CoinResult } from './CoinToss';
+import type { CoinResult, CoinTossHandle } from './CoinToss';
 import type { Card as CardType, AreaId, DraggableItemData } from '../types/game';
 import { Search, Shuffle } from 'lucide-react';
 
@@ -26,6 +27,34 @@ export function Board() {
     const [showDebug, setShowDebug] = useState(false);
     const [showDeckModal, setShowDeckModal] = useState(false);
     const [showTrashModal, setShowTrashModal] = useState(false);
+    const [isLogOpen, setIsLogOpen] = useState(true);
+    const coinTossRef = useRef<CoinTossHandle>(null);
+
+    const handleDrawCards = useCallback((count: number) => {
+        for (let i = 0; i < count; i++) {
+            drawCard('p1');
+        }
+        addLog('p1', 'draw', `カードを${count}枚引いた`);
+    }, [drawCard, addLog]);
+
+    const handlePrizeToHand = useCallback(() => {
+        const prizeCards = getCardsByLocation('p1-prize');
+        if (prizeCards.length === 0) return;
+        const topCard = prizeCards[prizeCards.length - 1];
+        moveCard(topCard.id, 'p1-prize', 'p1-hand');
+        addLog('p1', 'move', 'サイドからカードを1枚手札に加えた');
+    }, [getCardsByLocation, moveCard, addLog]);
+
+    useKeyboardShortcuts({
+        drawCards: handleDrawCards,
+        shuffleDeck: () => { shuffleDeck('p1'); addLog('p1', 'shuffle', 'デッキをシャッフルした'); },
+        toggleDeckModal: () => setShowDeckModal(prev => !prev),
+        toggleTrashModal: () => setShowTrashModal(prev => !prev),
+        returnAllHandAndShuffle: () => { returnAllHandToDeck('p1', false, true); addLog('p1', 'return', '手札を全て山札に戻してシャッフルした'); },
+        tossCoin: () => coinTossRef.current?.toss(),
+        toggleLog: () => setIsLogOpen(prev => !prev),
+        prizeToHand: handlePrizeToHand,
+    }, showDeckModal || showTrashModal);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -158,7 +187,7 @@ export function Board() {
                         air-playmat
                     </h1>
                     <div className="flex items-center gap-3">
-                        <CoinToss onResult={(result: CoinResult) => {
+                        <CoinToss ref={coinTossRef} onResult={(result: CoinResult) => {
                             addLog('p1', 'coin', `コイントス: ${result === 'heads' ? '表' : '裏'}`);
                         }} />
                         <div className="text-sm font-medium px-3 py-1 bg-slate-700 rounded-full">
@@ -324,7 +353,7 @@ export function Board() {
 
             {/* Game Log Panel */}
             <div className="w-full max-w-7xl mx-auto px-2 md:px-6">
-                <GameLog logs={logs} />
+                <GameLog logs={logs} isOpen={isLogOpen} onToggle={() => setIsLogOpen(prev => !prev)} />
             </div>
 
             {/* Debug Console */}
