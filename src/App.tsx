@@ -6,7 +6,7 @@ import { useDeckManager } from './hooks/useDeckManager';
 type Tab = 'deck' | 'battle';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('deck');
+  const [activeTab, setActiveTab] = useState<Tab>('battle');
   const { decks, selectedIndex, isLoading, error, importDeck, selectDeck, removeDeck } = useDeckManager();
 
   const selectedDeck = selectedIndex !== null ? decks[selectedIndex] : null;

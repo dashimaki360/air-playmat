@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { DeckData } from '../types/game';
+import type { DeckData, CardInfo } from '../types/game';
 
 type DeckManagerProps = {
     decks: DeckData[];
@@ -23,6 +23,7 @@ const CARD_TYPE_LABELS: Record<string, string> = {
 
 export function DeckManager({ decks, selectedIndex, isLoading, error, onImport, onSelect, onRemove }: DeckManagerProps) {
     const [deckCode, setDeckCode] = useState('');
+    const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -90,6 +91,13 @@ export function DeckManager({ decks, selectedIndex, isLoading, error, onImport, 
                                 }`}
                             >
                                 <div className="flex items-start justify-between gap-2">
+                                    {deck.cards[0] && (
+                                        <img
+                                            src={deck.cards[0].imageUrl}
+                                            alt={deck.cards[0].name}
+                                            className="w-10 h-14 object-cover rounded-sm shrink-0"
+                                        />
+                                    )}
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
                                             {isSelected && <span className="text-yellow-400">★</span>}
@@ -107,6 +115,12 @@ export function DeckManager({ decks, selectedIndex, isLoading, error, onImport, 
                                         </div>
                                     </div>
                                     <div className="flex gap-2 shrink-0">
+                                        <button
+                                            onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
+                                            className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-colors"
+                                        >
+                                            {expandedIndex === index ? '閉じる' : '詳細'}
+                                        </button>
                                         {!isSelected && (
                                             <button
                                                 onClick={() => onSelect(index)}
@@ -123,11 +137,56 @@ export function DeckManager({ decks, selectedIndex, isLoading, error, onImport, 
                                         </button>
                                     </div>
                                 </div>
+                                {expandedIndex === index && (
+                                    <DeckCardList cards={deck.cards} />
+                                )}
                             </div>
                         );
                     })}
                 </div>
             )}
+        </div>
+    );
+}
+
+const CARD_TYPE_ORDER = ['ポケモン', 'グッズ', 'ポケモンのどうぐ', 'サポート', 'スタジアム', 'エネルギー', 'わざマシン'];
+
+function DeckCardList({ cards }: { cards: CardInfo[] }) {
+    const grouped: Record<string, CardInfo[]> = {};
+    cards.forEach(card => {
+        const type = card.type || '不明';
+        if (!grouped[type]) grouped[type] = [];
+        grouped[type].push(card);
+    });
+
+    const sortedTypes = Object.keys(grouped).sort((a, b) => {
+        const ai = CARD_TYPE_ORDER.indexOf(a);
+        const bi = CARD_TYPE_ORDER.indexOf(b);
+        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    });
+
+    return (
+        <div className="mt-3 pt-3 border-t border-slate-700">
+            {sortedTypes.map(type => (
+                <div key={type} className="mb-3">
+                    <h4 className="text-xs font-medium text-slate-400 mb-1">
+                        {CARD_TYPE_LABELS[type] || type} ({grouped[type].reduce((s, c) => s + c.count, 0)})
+                    </h4>
+                    <div className="grid grid-cols-2 gap-1">
+                        {grouped[type].map(card => (
+                            <div key={card.id} className="flex items-center gap-2 text-xs text-slate-300 py-0.5 px-2 rounded bg-slate-800/50">
+                                <img
+                                    src={card.imageUrl}
+                                    alt={card.name}
+                                    className="w-8 h-11 object-cover rounded-sm shrink-0"
+                                />
+                                <span className="truncate">{card.name}</span>
+                                <span className="text-slate-500 ml-auto shrink-0">x{card.count}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
         </div>
     );
 }
