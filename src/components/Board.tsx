@@ -8,14 +8,17 @@ import {
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useGameState } from '../hooks/useGameState';
+import { useGameLog } from '../hooks/useGameLog';
 import { Card } from './Card';
 import { CardStack } from './CardStack';
 import { DroppableArea } from './DroppableArea';
+import { GameLog } from './GameLog';
 import type { Card as CardType, AreaId, DraggableItemData } from '../types/game';
 import { Search, Shuffle } from 'lucide-react';
 
 export function Board() {
     const { gameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnAllHandToDeck } = useGameState();
+    const { logs, addLog } = useGameLog();
     const [activeCardData, setActiveCardData] = useState<DraggableItemData | null>(null);
     const [showDebug, setShowDebug] = useState(false);
     const [showDeckModal, setShowDeckModal] = useState(false);
@@ -50,6 +53,8 @@ export function Board() {
             // 自分自身には重ねられない
             if (activeData.card.id !== targetCardId) {
                 attachCard(activeData.card.id, targetCardId);
+                const pPrefix = activeData.playerId === 'player-1' ? 'p1' : 'p2';
+                addLog(pPrefix, 'attach', `${activeData.card.name || 'カード'}をつけた`);
             }
             return;
         }
@@ -72,6 +77,7 @@ export function Board() {
                 // スタックの場合はベースカードを移動（スタック全体が連動して動く）
                 const cardIdToMove = activeData.stackBaseCardId ?? activeData.card.id;
                 moveCard(cardIdToMove, sourceLoc, targetLoc);
+                addLog(pPrefix, 'move', `${activeData.card.name || 'カード'}を${targetAreaId}に移動`);
             }
         }
     };
@@ -232,22 +238,22 @@ export function Board() {
                             
                             {/* Deck Action Buttons (below the stack) */}
                             <div className="flex gap-1 mt-2 z-30">
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); drawCard('p1'); }}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); drawCard('p1'); addLog('p1', 'draw', 'カードを1枚引いた'); }}
                                     className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] px-2 py-1 rounded shadow-md border border-blue-400 transition-colors font-bold"
                                     title="1枚ドロー"
                                 >
                                     ドロー
                                 </button>
-                                <button 
+                                <button
                                     onClick={(e) => { e.stopPropagation(); setShowDeckModal(true); }}
                                     className="bg-slate-700 hover:bg-slate-600 text-slate-200 p-1 rounded shadow-md border border-slate-500 flex items-center justify-center transition-colors"
                                     title="山札を見る"
                                 >
                                     <Search size={12} />
                                 </button>
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); shuffleDeck('p1'); }}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); shuffleDeck('p1'); addLog('p1', 'shuffle', 'デッキをシャッフルした'); }}
                                     className="bg-slate-700 hover:bg-slate-600 text-slate-200 p-1 rounded shadow-md border border-slate-500 flex items-center justify-center transition-colors"
                                     title="シャッフル"
                                 >
@@ -286,15 +292,15 @@ export function Board() {
                         {/* Hand Actions */}
                         {getCardsByLocation('p1-hand').length > 0 && (
                             <div className="absolute top-1 right-1 flex gap-1 z-30">
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); returnAllHandToDeck('p1', true, false); }}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); returnAllHandToDeck('p1', true, false); addLog('p1', 'return', '手札を全て山札の下に戻した'); }}
                                     className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] px-2 py-1 rounded shadow-md border border-slate-500 transition-colors"
                                     title="手札を全て山札の下に戻す"
                                 >
                                     全て山札の下へ
                                 </button>
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); returnAllHandToDeck('p1', false, true); }}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); returnAllHandToDeck('p1', false, true); addLog('p1', 'return', '手札を全て山札に戻してシャッフルした'); }}
                                     className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] px-2 py-1 rounded shadow-md border border-slate-500 transition-colors"
                                     title="手札を全て山札に戻してシャッフル"
                                 >
@@ -307,8 +313,13 @@ export function Board() {
 
             </div>
 
+            {/* Game Log Panel */}
+            <div className="w-full max-w-7xl mx-auto px-2 md:px-6">
+                <GameLog logs={logs} />
+            </div>
+
             {/* Debug Console */}
-            <div className="w-full max-w-7xl mx-auto mt-8 mb-4 px-2 md:px-6">
+            <div className="w-full max-w-7xl mx-auto mt-4 mb-4 px-2 md:px-6">
                 <button
                     onClick={() => setShowDebug(!showDebug)}
                     className="text-xs text-slate-400 bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded border border-slate-700 transition"
