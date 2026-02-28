@@ -14,12 +14,13 @@ import { CardStack } from './CardStack';
 import { DroppableArea } from './DroppableArea';
 import { GameLog } from './GameLog';
 import { CoinToss } from './CoinToss';
+import { CardListModal } from './CardListModal';
 import type { CoinResult } from './CoinToss';
 import type { Card as CardType, AreaId, DraggableItemData } from '../types/game';
 import { Search, Shuffle } from 'lucide-react';
 
 export function Board() {
-    const { gameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnAllHandToDeck } = useGameState();
+    const { gameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck } = useGameState();
     const { logs, addLog } = useGameLog();
     const [activeCardData, setActiveCardData] = useState<DraggableItemData | null>(null);
     const [showDebug, setShowDebug] = useState(false);
@@ -342,75 +343,67 @@ export function Board() {
 
             {/* Deck Viewer Modal */}
             {showDeckModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-                    <div className="bg-slate-800 border-2 border-slate-600 rounded-xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl">
-                        <div className="flex justify-between items-center p-4 border-b border-slate-700 bg-slate-900/50 rounded-t-xl">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                <Search className="text-blue-400" />
-                                山札の確認 ({getCardsByLocation('p1-deck').length}枚)
-                            </h2>
-                            <button 
-                                onClick={() => setShowDeckModal(false)}
-                                className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-1.5 rounded font-bold transition-colors"
-                            >
-                                閉じる
-                            </button>
-                        </div>
-                        <div className="p-4 overflow-y-auto flex-1 bg-slate-900/20">
-                            <div className="flex flex-wrap gap-3 justify-center">
-                                {/* デッキ内のカードを表向き（f: true）として表示 */}
-                                {getCardsByLocation('p1-deck').map((c) => (
-                                    <div key={c.id} className="relative group">
-                                        {/* 無理やり f = true にして表示 */}
-                                        <Card 
-                                            card={{...c, f: true}} 
-                                            area="deck" 
-                                            playerId="player-1" 
-                                            onUpdateStatus={() => {}} 
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="p-3 border-t border-slate-700 text-sm text-slate-400 text-center bg-slate-900/50 rounded-b-xl">
-                            ※ 現在、山札の順番はそのまま表示されています。カードをドラッグして動かすことはできません。
-                        </div>
-                    </div>
-                </div>
+                <CardListModal
+                    title="山札の確認"
+                    cards={getCardsByLocation('p1-deck')}
+                    onClose={() => setShowDeckModal(false)}
+                    actions={[
+                        {
+                            label: '手札に加える',
+                            onClick: (cardId) => {
+                                moveCard(cardId, 'p1-deck', 'p1-hand');
+                                addLog('p1', 'move', '山札からカードを手札に加えた');
+                            },
+                        },
+                        {
+                            label: 'トラッシュ',
+                            onClick: (cardId) => {
+                                moveCard(cardId, 'p1-deck', 'p1-trash');
+                                addLog('p1', 'trash', '山札からカードをトラッシュした');
+                            },
+                        },
+                    ]}
+                    footerMessage="※ 左端が山札の下、右端が山札の上です"
+                />
             )}
 
             {/* Trash Viewer Modal */}
             {showTrashModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-                    <div className="bg-slate-800 border-2 border-slate-600 rounded-xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl">
-                        <div className="flex justify-between items-center p-4 border-b border-slate-700 bg-slate-900/50 rounded-t-xl">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                <Search className="text-slate-400" />
-                                トラッシュの確認 ({getCardsByLocation('p1-trash').length}枚)
-                            </h2>
-                            <button
-                                onClick={() => setShowTrashModal(false)}
-                                className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-1.5 rounded font-bold transition-colors"
-                            >
-                                閉じる
-                            </button>
-                        </div>
-                        <div className="p-4 overflow-y-auto flex-1 bg-slate-900/20">
-                            <div className="flex flex-wrap gap-3 justify-center">
-                                {getCardsByLocation('p1-trash').map((c) => (
-                                    <div key={c.id}>
-                                        <Card
-                                            card={c}
-                                            area="trash"
-                                            playerId="player-1"
-                                            onUpdateStatus={() => {}}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <CardListModal
+                    title="トラッシュの確認"
+                    cards={getCardsByLocation('p1-trash')}
+                    onClose={() => setShowTrashModal(false)}
+                    actions={[
+                        {
+                            label: '手札に加える',
+                            onClick: (cardId) => {
+                                moveCard(cardId, 'p1-trash', 'p1-hand');
+                                addLog('p1', 'move', 'トラッシュからカードを手札に加えた');
+                            },
+                        },
+                        {
+                            label: '山札の上へ',
+                            onClick: (cardId) => {
+                                returnToDeck(cardId, false);
+                                addLog('p1', 'return', 'トラッシュからカードを山札の上に戻した');
+                            },
+                        },
+                        {
+                            label: '山札の下へ',
+                            onClick: (cardId) => {
+                                returnToDeck(cardId, true);
+                                addLog('p1', 'return', 'トラッシュからカードを山札の下に戻した');
+                            },
+                        },
+                        {
+                            label: 'ベンチへ',
+                            onClick: (cardId) => {
+                                moveCard(cardId, 'p1-trash', 'p1-bench');
+                                addLog('p1', 'move', 'トラッシュからカードをベンチに出した');
+                            },
+                        },
+                    ]}
+                />
             )}
 
             <DragOverlay dropAnimation={null}>
