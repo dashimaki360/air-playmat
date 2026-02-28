@@ -20,7 +20,9 @@ src/
 ├── types/game.ts              # 全型定義
 ├── hooks/
 │   ├── useGameState.ts        # ゲーム状態管理（唯一の管理元）
-│   └── useGameLog.ts          # ゲームログ管理（操作履歴）
+│   ├── useGameLog.ts          # ゲームログ管理（操作履歴）
+│   ├── useDeckManager.ts      # デッキインポート・選択・削除
+│   └── useKeyboardShortcuts.ts # キーボードショートカット
 ├── components/
 │   ├── Board.tsx              # メインレイアウト + DnDコンテキスト
 │   ├── Card.tsx               # 個別カード
@@ -28,6 +30,7 @@ src/
 │   ├── CardMenu.tsx           # カード操作メニュー（portal）
 │   ├── CardListModal.tsx      # 汎用カードリストモーダル（アクション付き）
 │   ├── CoinToss.tsx           # コイントス（表/裏ランダム判定）
+│   ├── DeckManager.tsx        # デッキインポート・一覧・詳細表示
 │   ├── GameLog.tsx            # ゲームログ表示パネル
 │   └── DroppableArea.tsx      # ドロップ可能エリア
 ├── lib/pokemon-tcg/deck-scraper.ts  # デッキスクレイピング
@@ -131,7 +134,14 @@ type Card = {
 - `*.test.ts` / `*.test.tsx` をソースと同階層に配置
 - `vitest.setup.ts` で dnd-kit グローバルモック設定
 - TDD（テスト先行 → 失敗確認 → 実装 → 通過確認 → コミット）
-- 現在: 124テスト、9テストファイル
+- 現在: 146テスト、11テストファイル
+
+## デッキ管理（DeckManager + useDeckManager）
+- デッキコード入力でポケモンカード公式サイトからインポート
+- インポート済みデッキ一覧: サムネイル（1枚目のカード画像）+ コード + 枚数 + タイプ別内訳
+- 「詳細」ボタンでカードリスト展開（タイプ別グループ化、画像・名前・枚数表示）
+- 選択したデッキで対戦開始（Board に `deckCards` を渡す）
+- デフォルトタブは「対戦」
 
 ## API
 - `GET /api/getDeck?code={deckCode}` - ポケモンカード公式サイトからスクレイピング（キャッシュ: 3600秒）
