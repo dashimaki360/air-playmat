@@ -151,7 +151,7 @@ export function Board() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div className="min-h-screen bg-slate-900 text-slate-100 p-2 md:p-6 w-full max-w-7xl mx-auto flex flex-col gap-4">
+            <div className="min-h-screen bg-slate-900 text-slate-100 p-2 md:p-6 w-full max-w-7xl mx-auto flex flex-col gap-4 overflow-x-hidden">
                 {/* Header */}
                 <div className="flex justify-between items-center py-2 px-4 bg-slate-800 rounded-lg shadow-sm border border-slate-700">
                     <h1 className="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">
@@ -228,7 +228,7 @@ export function Board() {
                     
                     {/* Row 1: Prize, Stadium & Active, Deck */}
                     {/* Activeを中央に広くとるためのグリッド */}
-                    <div className="grid grid-cols-[100px_80px_1fr_100px] sm:grid-cols-[120px_100px_1fr_120px] md:grid-cols-[140px_140px_1fr_140px] gap-2 md:gap-4">
+                    <div className="grid grid-cols-[1fr_80px_160px_1fr] sm:grid-cols-[1fr_100px_180px_1fr] md:grid-cols-[1fr_140px_200px_1fr] gap-2 md:gap-4 min-w-0">
                         <DroppableArea id="prize" title="Prize" playerId="player-1" className="min-h-[140px] md:min-h-[180px] bg-indigo-900/30 items-center justify-center">
                             {renderStackedArea(getCardsByLocation('p1-prize'), 'prize')}
                         </DroppableArea>
@@ -272,8 +272,8 @@ export function Board() {
                     </div>
 
                     {/* Row 2: Bench (widely taking left side), Trash (right end) */}
-                    <div className="grid grid-cols-[1fr_100px] sm:grid-cols-[1fr_120px] md:grid-cols-[1fr_140px] gap-2 md:gap-4">
-                        <DroppableArea id="bench" title="Bench" playerId="player-1" className="min-h-[140px] md:min-h-[180px] justify-center flex-row flex-wrap content-start">
+                    <div className="grid grid-cols-[1fr_100px] sm:grid-cols-[1fr_120px] md:grid-cols-[1fr_140px] gap-2 md:gap-4 min-w-0">
+                        <DroppableArea id="bench" title="Bench" playerId="player-1" className="min-h-[140px] md:min-h-[180px]" innerClassName="grid grid-cols-5 gap-2 md:gap-4 flex-1 items-start content-start relative z-10 min-w-0">
                             {getCardsByLocation('p1-bench').map((c, i) => renderCardStack(c, 'bench', 'player-1', i))}
                         </DroppableArea>
 
@@ -294,12 +294,10 @@ export function Board() {
                     </div>
 
                     {/* Row 3: Hand */}
-                    <DroppableArea id="hand" title="Hand" playerId="player-1" className="min-h-[140px] md:min-h-[180px] border-indigo-500/50 bg-indigo-900/10 shadow-inner flex-row flex-wrap content-start relative">
-                        {getCardsByLocation('p1-hand').map((c, i) => renderCard(c, 'hand', i))}
-                        
+                    <DroppableArea id="hand" title="Hand" playerId="player-1" className="min-h-[140px] md:min-h-[180px] border-indigo-500/50 bg-indigo-900/10 shadow-inner" innerClassName="flex flex-col gap-2 flex-1 relative z-10 min-w-0">
                         {/* Hand Actions */}
                         {getCardsByLocation('p1-hand').length > 0 && (
-                            <div className="absolute top-1 right-1 flex gap-1 z-30">
+                            <div className="flex justify-end gap-1">
                                 <button
                                     onClick={(e) => { e.stopPropagation(); returnAllHandToDeck('p1', true, false); addLog('p1', 'return', '手札を全て山札の下に戻した'); }}
                                     className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] px-2 py-1 rounded shadow-md border border-slate-500 transition-colors"
@@ -316,6 +314,9 @@ export function Board() {
                                 </button>
                             </div>
                         )}
+                        <div className="grid grid-cols-7 gap-2 md:gap-4 items-start content-start">
+                            {getCardsByLocation('p1-hand').map((c, i) => renderCard(c, 'hand', i))}
+                        </div>
                     </DroppableArea>
                 </div>
 

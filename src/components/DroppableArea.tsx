@@ -7,10 +7,11 @@ interface DroppableAreaProps {
     title: string;
     children: React.ReactNode;
     className?: string;
+    innerClassName?: string;
     playerId: string;
 }
 
-export function DroppableArea({ id, title, children, className = '', playerId }: DroppableAreaProps) {
+export function DroppableArea({ id, title, children, className = '', innerClassName, playerId }: DroppableAreaProps) {
     // We use combination of playerId and areaId to ensure uniqueness across playmat
     const droppableId = `${playerId}-${id}`;
 
@@ -26,14 +27,14 @@ export function DroppableArea({ id, title, children, className = '', playerId }:
     return (
         <div
             ref={setNodeRef}
-            className={`border-2 rounded-xl p-2 md:p-4 flex flex-col gap-2 relative transition-colors
+            className={`border-2 rounded-xl p-2 md:p-4 flex flex-col gap-2 relative transition-colors min-w-0 overflow-hidden
         ${isOver ? 'border-green-400 bg-green-400/10' : 'border-slate-700 bg-slate-800/50'}
         ${className}`}
         >
             <div className="absolute top-0 right-0 p-1 md:p-2 opacity-30 text-xs md:text-sm font-bold uppercase tracking-wider pointer-events-none select-none">
                 {title}
             </div>
-            <div className="flex flex-wrap gap-2 md:gap-4 flex-1 items-start content-start relative z-10">
+            <div className={innerClassName ?? "flex flex-wrap gap-2 md:gap-4 flex-1 items-start content-start relative z-10 min-w-0"}>
                 {children}
             </div>
         </div>
