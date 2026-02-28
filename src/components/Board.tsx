@@ -13,6 +13,8 @@ import { Card } from './Card';
 import { CardStack } from './CardStack';
 import { DroppableArea } from './DroppableArea';
 import { GameLog } from './GameLog';
+import { CoinToss } from './CoinToss';
+import type { CoinResult } from './CoinToss';
 import type { Card as CardType, AreaId, DraggableItemData } from '../types/game';
 import { Search, Shuffle } from 'lucide-react';
 
@@ -154,8 +156,13 @@ export function Board() {
                     <h1 className="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">
                         air-playmat
                     </h1>
-                    <div className="text-sm font-medium px-3 py-1 bg-slate-700 rounded-full">
-                        Room: <span className="text-blue-300">{gameState.roomId}</span>
+                    <div className="flex items-center gap-3">
+                        <CoinToss onResult={(result: CoinResult) => {
+                            addLog('p1', 'coin', `コイントス: ${result === 'heads' ? '表' : '裏'}`);
+                        }} />
+                        <div className="text-sm font-medium px-3 py-1 bg-slate-700 rounded-full">
+                            Room: <span className="text-blue-300">{gameState.roomId}</span>
+                        </div>
                     </div>
                 </div>
 
