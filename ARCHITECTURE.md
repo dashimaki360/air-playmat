@@ -2,7 +2,7 @@
 
 ## 概要
 - **アプリ**: ポケモンTCGのデジタル対戦用プレイマットアプリ
-- **スタック**: React 19 + TypeScript + Vite + Tailwind CSS v4 + Vercel
+- **スタック**: React 19 + TypeScript + Vite + Tailwind CSS v4 + Firebase Realtime Database + Vercel
 
 ## コマンド集
 ```bash
@@ -17,14 +17,19 @@ npx vitest <ファイル>  # 特定テスト実行
 ## ファイル構成
 ```
 src/
-├── types/game.ts              # 全型定義
+├── types/
+│   ├── game.ts                # ゲーム型定義
+│   └── room.ts                # ルーム型定義（オンライン対戦）
 ├── hooks/
-│   ├── useGameState.ts        # ゲーム状態管理（唯一の管理元）
+│   ├── useGameState.ts        # ゲーム状態管理 + 純粋関数エクスポート
 │   ├── useGameLog.ts          # ゲームログ管理（操作履歴）
 │   ├── useDeckManager.ts      # デッキインポート・選択・削除
-│   └── useKeyboardShortcuts.ts # キーボードショートカット
+│   ├── useKeyboardShortcuts.ts # キーボードショートカット
+│   ├── useRoom.ts             # ルーム作成・参加・監視
+│   └── useFirebaseSync.ts     # Firebase 状態同期（delta書き込み+購読）
 ├── components/
-│   ├── Board.tsx              # メインレイアウト + DnDコンテキスト
+│   ├── Board.tsx              # メインレイアウト + DnDコンテキスト + perspective対応
+│   ├── Lobby.tsx              # オンライン対戦ロビー（ルーム作成/参加/待機）
 │   ├── Card.tsx               # 個別カード
 │   ├── CardStack.tsx          # ポケモン+付属カードのスタック
 │   ├── CardMenu.tsx           # カード操作メニュー（portal）
@@ -33,7 +38,10 @@ src/
 │   ├── DeckManager.tsx        # デッキインポート・一覧・詳細表示
 │   ├── GameLog.tsx            # ゲームログ表示パネル
 │   └── DroppableArea.tsx      # ドロップ可能エリア
-├── lib/pokemon-tcg/deck-scraper.ts  # デッキスクレイピング
+├── lib/
+│   ├── firebase.ts            # Firebase初期化（環境変数）
+│   ├── firebaseDelta.ts       # delta計算（純粋関数）
+│   └── pokemon-tcg/deck-scraper.ts  # デッキスクレイピング
 └── data/defaultDeck.json      # デフォルトデッキ（60枚）
 api/getDeck.ts                 # Vercel サーバーレス
 ```
@@ -71,18 +79,11 @@ type Card = {
 - UI/DnD: `"player-1"` / `"player-2"`
 - 変換: `Board.tsx` で行う
 
-**エクスポート関数:**
-- `getCardsByLocation(loc)` - 指定位置のカード（`att`付き除外・`o`順）
-- `getAttachedCards(cardId)` - 付属カード全取得（再帰）
-- `moveCard(cardId, src, dst, index?)` - カード移動（active スワップ、他はスタック解消）
-- `attachCard(cardId, targetCardId)` - 進化・エネルギー・道具付与
-- `detachCard(cardId, targetLoc)` - スタック外して指定位置に移動
-- `trashWithAttachments(cardId)` - きぜつ（付属含め全トラッシュ・リセット）
-- `updateCardStatus(cardId, updater)` - ダメージ・ステータス更新
-- `drawCard(playerId)` - 山札→手札
-- `shuffleDeck(playerId)` - 山札シャッフル
-- `returnToDeck(cardId, bottom?)` - 手札→山札
-- `returnAllHandToDeck(playerId)` - 全手札→山札
+**エクスポート関数（純粋関数 + hook メソッド）:**
+- 純粋関数: `applyMoveCard`, `applyAttachCard`, `applyDetachCard`, `applyTrashWithAttachments`, `applyUpdateCardStatus`, `applyDrawCard`, `applyShuffleDeck`, `applyReturnToDeck`, `applyReturnAllHandToDeck`
+- クエリ: `queryCardsByLocation(state, loc)`, `queryAttachedCards(state, cardId)`
+- 初期化: `createInitialState(deckCards?)`, `generateInitialPlayer(prefix, name, deckCards?)`
+- hook は `syncedUpdate` パターンで純粋関数を呼び出し、Firebase 同期を差し込み可能
 
 ## スタック構造（進化・エネルギー付与）
 - `att` で親子関係を形成
@@ -134,7 +135,7 @@ type Card = {
 - `*.test.ts` / `*.test.tsx` をソースと同階層に配置
 - `vitest.setup.ts` で dnd-kit グローバルモック設定
 - TDD（テスト先行 → 失敗確認 → 実装 → 通過確認 → コミット）
-- 現在: 146テスト、11テストファイル
+- 現在: 173テスト、13テストファイル
 
 ## デッキ管理（DeckManager + useDeckManager）
 - デッキコード入力でポケモンカード公式サイトからインポート
@@ -142,6 +143,40 @@ type Card = {
 - 「詳細」ボタンでカードリスト展開（タイプ別グループ化、画像・名前・枚数表示）
 - 選択したデッキで対戦開始（Board に `deckCards` を渡す）
 - デフォルトタブは「対戦」
+
+## オンライン対戦（Firebase Realtime Database）
+
+### 対戦フロー
+1. モード選択: ローカル / オンライン
+2. ルーム作成 or 参加（4桁ルームID）
+3. 両プレイヤーReady → p1が対戦開始
+4. p1が `generateInitialPlayer` で両プレイヤーの初期状態を生成し Firebase に書き込み
+5. Board が perspective に応じて p1/p2 の視点を切り替え
+
+### Firebase DB 構造
+```
+rooms/{roomId}/
+  meta/  { createdAt, status, p1Connected, p2Connected }
+  p1/    { n, deck, deckCards[], ready }
+  p2/    { n, deck, deckCards[], ready }
+  state/ { m/, p1/ { n, d[], c/{cardId}/ }, p2/ { ... } }
+```
+
+### 同期戦略
+- **書き込み**: `computeFirebaseUpdates()` で prev/next の差分パスのみを `update()` で送信
+- **購読**: `onValue()` で `state/` 全体を監視（Firebase が差分のみ転送）
+- **エコーループ防止**: `m.a`（lastAction）を比較
+- **syncedUpdate**: useGameState 内で状態変更時に `firebaseSync.pushUpdate(prev, next)` を呼び出し
+
+### perspective
+- `Board` に `perspective` prop で p1/p2 の視点を指定
+- p2 視点: 自分(p2) = PlayerArea（下）、相手(p1) = OpponentArea（上）
+- `PlayerArea` / `OpponentArea` に `playerId` / `dndPlayerId` を動的に渡す
+
+### 接続管理
+- `onDisconnect()` で切断検知
+- `sessionStorage` にルームID/プレイヤーID保存
+- ヘッダーに接続状態インジケーター（緑/赤ドット）
 
 ## API
 - `GET /api/getDeck?code={deckCode}` - ポケモンカード公式サイトからスクレイピング（キャッシュ: 3600秒）

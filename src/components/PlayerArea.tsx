@@ -7,6 +7,8 @@ import type { Card as CardType, AreaId } from '../types/game';
 import type { GameLogAction } from '../hooks/useGameLog';
 
 type PlayerAreaProps = {
+    playerId?: string; // 'p1' | 'p2' — デフォルト 'p1'
+    dndPlayerId?: string; // DnD用 'player-1' | 'player-2' — デフォルト 'player-1'
     getCardsByLocation: (loc: string) => CardType[];
     getAttachedCards: (cardId: string) => CardType[];
     updateCardStatus: (id: string, updater: (c: CardType) => CardType) => void;
@@ -21,6 +23,8 @@ type PlayerAreaProps = {
 };
 
 export function PlayerArea({
+    playerId: pid = 'p1',
+    dndPlayerId: dndPid = 'player-1',
     getCardsByLocation,
     getAttachedCards,
     updateCardStatus,
@@ -38,7 +42,7 @@ export function PlayerArea({
             key={card.id}
             card={card}
             area={area}
-            playerId="player-1"
+            playerId={dndPid}
             index={index}
             onUpdateStatus={(id, updater) => updateCardStatus(id, updater)}
         />
@@ -52,7 +56,7 @@ export function PlayerArea({
                 baseCard={card}
                 attachedCards={attached}
                 area={area}
-                playerId="player-1"
+                playerId={dndPid}
                 index={index}
                 onUpdateStatus={(id, updater) => updateCardStatus(id, updater)}
                 onDetachCard={(cardId, targetLoc) => detachCard(cardId, targetLoc)}
@@ -65,25 +69,25 @@ export function PlayerArea({
         <div className="flex flex-col gap-4 border-t-2 border-slate-700/50 pt-4 mt-2">
             {/* Row 1: Prize, Stadium & Active, Deck */}
             <div className="grid grid-cols-[1fr_80px_160px_1fr] sm:grid-cols-[1fr_100px_180px_1fr] md:grid-cols-[1fr_140px_200px_1fr] gap-2 md:gap-4 min-w-0">
-                <DroppableArea id="prize" title="Prize" playerId="player-1" className="min-h-[140px] md:min-h-[180px] bg-indigo-900/30 items-center justify-center">
-                    <StackedArea cards={getCardsByLocation('p1-prize')} area="prize" onUpdateStatus={updateCardStatus} />
+                <DroppableArea id="prize" title="Prize" playerId={dndPid} className="min-h-[140px] md:min-h-[180px] bg-indigo-900/30 items-center justify-center">
+                    <StackedArea cards={getCardsByLocation(`${pid}-prize`)} area="prize" onUpdateStatus={updateCardStatus} />
                 </DroppableArea>
 
-                <DroppableArea id="stadium" title="Stadium" playerId="player-1" className="min-h-[140px] md:min-h-[180px] items-center justify-center border-slate-600 bg-slate-700/30">
+                <DroppableArea id="stadium" title="Stadium" playerId={dndPid} className="min-h-[140px] md:min-h-[180px] items-center justify-center border-slate-600 bg-slate-700/30">
                     {getCardsByLocation('stadium').length > 0 ? renderCard(getCardsByLocation('stadium')[0], 'stadium') : null}
                 </DroppableArea>
 
-                <DroppableArea id="active" title="Active" playerId="player-1" className="min-h-[140px] md:min-h-[180px] items-center justify-center bg-blue-900/20 border-blue-800">
-                    {getCardsByLocation('p1-active').length > 0 ? renderCardStack(getCardsByLocation('p1-active')[0], 'active') : null}
+                <DroppableArea id="active" title="Active" playerId={dndPid} className="min-h-[140px] md:min-h-[180px] items-center justify-center bg-blue-900/20 border-blue-800">
+                    {getCardsByLocation(`${pid}-active`).length > 0 ? renderCardStack(getCardsByLocation(`${pid}-active`)[0], 'active') : null}
                 </DroppableArea>
 
-                <DroppableArea id="deck" title="Deck" playerId="player-1" className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center relative">
-                    <StackedArea cards={getCardsByLocation('p1-deck')} area="deck" onUpdateStatus={updateCardStatus} />
+                <DroppableArea id="deck" title="Deck" playerId={dndPid} className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center relative">
+                    <StackedArea cards={getCardsByLocation(`${pid}-deck`)} area="deck" onUpdateStatus={updateCardStatus} />
 
                     {/* Deck Action Buttons */}
                     <div className="flex gap-1 mt-2 z-30">
                         <button
-                            onClick={(e) => { e.stopPropagation(); drawCard('p1'); addLog('p1', 'draw', 'カードを1枚引いた'); }}
+                            onClick={(e) => { e.stopPropagation(); drawCard(pid); addLog(pid, 'draw', 'カードを1枚引いた'); }}
                             className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] px-2 py-1 rounded shadow-md border border-blue-400 transition-colors font-bold"
                             title="1枚ドロー"
                         >
@@ -97,7 +101,7 @@ export function PlayerArea({
                             <Search size={12} />
                         </button>
                         <button
-                            onClick={(e) => { e.stopPropagation(); shuffleDeck('p1'); addLog('p1', 'shuffle', 'デッキをシャッフルした'); }}
+                            onClick={(e) => { e.stopPropagation(); shuffleDeck(pid); addLog(pid, 'shuffle', 'デッキをシャッフルした'); }}
                             className="bg-slate-700 hover:bg-slate-600 text-slate-200 p-1 rounded shadow-md border border-slate-500 flex items-center justify-center transition-colors"
                             title="シャッフル"
                         >
@@ -109,13 +113,13 @@ export function PlayerArea({
 
             {/* Row 2: Bench, Trash */}
             <div className="grid grid-cols-[1fr_100px] sm:grid-cols-[1fr_120px] md:grid-cols-[1fr_140px] gap-2 md:gap-4 min-w-0">
-                <DroppableArea id="bench" title="Bench" playerId="player-1" className="min-h-[140px] md:min-h-[180px]" innerClassName="grid grid-cols-5 gap-2 md:gap-4 flex-1 items-start content-start relative z-10 min-w-0">
-                    {getCardsByLocation('p1-bench').map((c, i) => renderCardStack(c, 'bench', i))}
+                <DroppableArea id="bench" title="Bench" playerId={dndPid} className="min-h-[140px] md:min-h-[180px]" innerClassName="grid grid-cols-5 gap-2 md:gap-4 flex-1 items-start content-start relative z-10 min-w-0">
+                    {getCardsByLocation(`${pid}-bench`).map((c, i) => renderCardStack(c, 'bench', i))}
                 </DroppableArea>
 
-                <DroppableArea id="trash" title="Trash" playerId="player-1" className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center">
-                    <StackedArea cards={getCardsByLocation('p1-trash')} area="trash" onUpdateStatus={updateCardStatus} />
-                    {getCardsByLocation('p1-trash').length > 0 && (
+                <DroppableArea id="trash" title="Trash" playerId={dndPid} className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center">
+                    <StackedArea cards={getCardsByLocation(`${pid}-trash`)} area="trash" onUpdateStatus={updateCardStatus} />
+                    {getCardsByLocation(`${pid}-trash`).length > 0 && (
                         <div className="flex gap-1 mt-2 z-30">
                             <button
                                 onClick={(e) => { e.stopPropagation(); setShowTrashModal(true); }}
@@ -130,19 +134,19 @@ export function PlayerArea({
             </div>
 
             {/* Row 3: Hand */}
-            <DroppableArea id="hand" title="Hand" playerId="player-1" className="min-h-[140px] md:min-h-[180px] border-indigo-500/50 bg-indigo-900/10 shadow-inner" innerClassName="flex flex-col gap-2 flex-1 relative z-10 min-w-0">
+            <DroppableArea id="hand" title="Hand" playerId={dndPid} className="min-h-[140px] md:min-h-[180px] border-indigo-500/50 bg-indigo-900/10 shadow-inner" innerClassName="flex flex-col gap-2 flex-1 relative z-10 min-w-0">
                 {/* Hand Actions */}
-                {getCardsByLocation('p1-hand').length > 0 && (
+                {getCardsByLocation(`${pid}-hand`).length > 0 && (
                     <div className="flex justify-end gap-1">
                         <button
-                            onClick={(e) => { e.stopPropagation(); returnAllHandToDeck('p1', true, false); addLog('p1', 'return', '手札を全て山札の下に戻した'); }}
+                            onClick={(e) => { e.stopPropagation(); returnAllHandToDeck(pid, true, false); addLog(pid, 'return', '手札を全て山札の下に戻した'); }}
                             className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] px-2 py-1 rounded shadow-md border border-slate-500 transition-colors"
                             title="手札を全て山札の下に戻す"
                         >
                             全て山札の下へ
                         </button>
                         <button
-                            onClick={(e) => { e.stopPropagation(); returnAllHandToDeck('p1', false, true); addLog('p1', 'return', '手札を全て山札に戻してシャッフルした'); }}
+                            onClick={(e) => { e.stopPropagation(); returnAllHandToDeck(pid, false, true); addLog(pid, 'return', '手札を全て山札に戻してシャッフルした'); }}
                             className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] px-2 py-1 rounded shadow-md border border-slate-500 transition-colors"
                             title="手札を全て山札に戻してシャッフル"
                         >
@@ -151,7 +155,7 @@ export function PlayerArea({
                     </div>
                 )}
                 <div className="grid grid-cols-7 gap-2 md:gap-4 items-start content-start">
-                    {getCardsByLocation('p1-hand').map((c, i) => renderCard(c, 'hand', i))}
+                    {getCardsByLocation(`${pid}-hand`).map((c, i) => renderCard(c, 'hand', i))}
                 </div>
             </DroppableArea>
         </div>

@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { useGameState } from './useGameState';
+import { useGameState, createInitialState, applyMoveCard, applyAttachCard, applyDetachCard, applyTrashWithAttachments, applyUpdateCardStatus, applyDrawCard, applyShuffleDeck, applyReturnToDeck, applyReturnAllHandToDeck, queryCardsByLocation, queryAttachedCards } from './useGameState';
 import defaultDeck from '../data/defaultDeck.json';
 
 describe('useGameState hook', () => {
@@ -500,6 +500,152 @@ describe('useGameState hook', () => {
             expect(returned.f).toBe(false);
             expect(returned.d).toBe(0);
             expect(returned.cnd).toEqual([]);
+        });
+    });
+});
+
+// ── 純粋関数の直接テスト ──────────────────────────────────────
+describe('pure functions (apply*)', () => {
+    const getState = () => createInitialState();
+    const getP1Card = (state: ReturnType<typeof createInitialState>, loc: string) =>
+        Object.values(state.p1.c).find(c => c.l === loc)!;
+    const getP1Cards = (state: ReturnType<typeof createInitialState>, loc: string) =>
+        Object.values(state.p1.c).filter(c => c.l === loc);
+
+    describe('applyMoveCard', () => {
+        it('カードを移動し新しいstateを返す（元のstateは不変）', () => {
+            const state = getState();
+            const card = getP1Card(state, 'p1-hand');
+            const next = applyMoveCard(state, card.id, 'p1-hand', 'p1-bench');
+
+            expect(next).not.toBe(state);
+            expect(next.p1.c[card.id].l).toBe('p1-bench');
+            expect(state.p1.c[card.id].l).toBe('p1-hand'); // 元は不変
+        });
+
+        it('存在しないcardIdでは同じstateを返す', () => {
+            const state = getState();
+            const next = applyMoveCard(state, 'non-existent', 'p1-hand', 'p1-bench');
+            expect(next).toBe(state);
+        });
+    });
+
+    describe('applyAttachCard', () => {
+        it('attフィールドを設定して新しいstateを返す', () => {
+            const state = getState();
+            const active = getP1Card(state, 'p1-active');
+            const hand = getP1Card(state, 'p1-hand');
+            const next = applyAttachCard(state, hand.id, active.id);
+
+            expect(next.p1.c[hand.id].att).toBe(active.id);
+            expect(next.p1.c[hand.id].l).toBe('p1-active');
+            expect(state.p1.c[hand.id].att).toBeUndefined(); // 元は不変
+        });
+    });
+
+    describe('applyDetachCard', () => {
+        it('attを解除して新しい位置に移動する', () => {
+            const state = getState();
+            const active = getP1Card(state, 'p1-active');
+            const hand = getP1Card(state, 'p1-hand');
+            const attached = applyAttachCard(state, hand.id, active.id);
+            const next = applyDetachCard(attached, hand.id, 'p1-hand');
+
+            expect(next.p1.c[hand.id].att).toBeUndefined();
+            expect(next.p1.c[hand.id].l).toBe('p1-hand');
+        });
+    });
+
+    describe('applyTrashWithAttachments', () => {
+        it('カードと付属カードをトラッシュに送る', () => {
+            const state = getState();
+            const active = getP1Card(state, 'p1-active');
+            const hand = getP1Card(state, 'p1-hand');
+            const attached = applyAttachCard(state, hand.id, active.id);
+            const next = applyTrashWithAttachments(attached, active.id);
+
+            expect(next.p1.c[active.id].l).toBe('p1-trash');
+            expect(next.p1.c[hand.id].l).toBe('p1-trash');
+            expect(next.p1.c[active.id].d).toBe(0);
+            expect(next.p1.c[active.id].cnd).toEqual([]);
+        });
+    });
+
+    describe('applyUpdateCardStatus', () => {
+        it('カードのステータスを更新する', () => {
+            const state = getState();
+            const card = getP1Card(state, 'p1-hand');
+            const next = applyUpdateCardStatus(state, card.id, c => ({ ...c, d: 60 }));
+
+            expect(next.p1.c[card.id].d).toBe(60);
+            expect(state.p1.c[card.id].d).toBe(0); // 元は不変
+        });
+    });
+
+    describe('applyDrawCard', () => {
+        it('山札の一番上のカードを手札に加える', () => {
+            const state = getState();
+            const topCardId = state.p1.d[state.p1.d.length - 1];
+            const next = applyDrawCard(state, 'p1');
+
+            expect(next.p1.c[topCardId].l).toBe('p1-hand');
+            expect(next.p1.d.length).toBe(state.p1.d.length - 1);
+        });
+    });
+
+    describe('applyShuffleDeck', () => {
+        it('シャッフル後も山札のサイズが変わらない', () => {
+            const state = getState();
+            const next = applyShuffleDeck(state, 'p1');
+            expect(next.p1.d.length).toBe(state.p1.d.length);
+        });
+    });
+
+    describe('applyReturnToDeck', () => {
+        it('カードを山札に戻す', () => {
+            const state = getState();
+            const card = getP1Card(state, 'p1-hand');
+            const next = applyReturnToDeck(state, card.id, false);
+
+            expect(next.p1.c[card.id].l).toBe('p1-deck');
+            expect(next.p1.c[card.id].f).toBe(false);
+            expect(next.p1.d[next.p1.d.length - 1]).toBe(card.id);
+        });
+    });
+
+    describe('applyReturnAllHandToDeck', () => {
+        it('全手札を山札に戻す', () => {
+            const state = getState();
+            const handCards = getP1Cards(state, 'p1-hand');
+            const next = applyReturnAllHandToDeck(state, 'p1');
+
+            handCards.forEach(c => {
+                expect(next.p1.c[c.id].l).toBe('p1-deck');
+            });
+            const nextHand = Object.values(next.p1.c).filter(c => c.l === 'p1-hand');
+            expect(nextHand.length).toBe(0);
+        });
+    });
+
+    describe('queryCardsByLocation', () => {
+        it('指定locationのカードを返す', () => {
+            const state = getState();
+            const handCards = queryCardsByLocation(state, 'p1-hand');
+            expect(handCards.length).toBe(7);
+            expect(handCards.every(c => c.l === 'p1-hand')).toBe(true);
+        });
+    });
+
+    describe('queryAttachedCards', () => {
+        it('付属カードを返す', () => {
+            const state = getState();
+            const active = getP1Card(state, 'p1-active');
+            const hand = getP1Card(state, 'p1-hand');
+            const attached = applyAttachCard(state, hand.id, active.id);
+
+            const result = queryAttachedCards(attached, active.id);
+            expect(result.length).toBe(1);
+            expect(result[0].id).toBe(hand.id);
         });
     });
 });

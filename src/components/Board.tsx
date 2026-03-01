@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { useGameState } from '../hooks/useGameState';
+import type { FirebaseSyncRef } from '../hooks/useGameState';
 import { useGameLog } from '../hooks/useGameLog';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useBoardDragDrop } from '../hooks/useBoardDragDrop';
@@ -11,14 +12,24 @@ import { CardListModal } from './CardListModal';
 import { OpponentArea } from './OpponentArea';
 import { PlayerArea } from './PlayerArea';
 import type { CoinResult, CoinTossHandle } from './CoinToss';
-import type { CardInfo } from '../types/game';
+import type { CardInfo, GameState } from '../types/game';
+import type { PlayerId } from '../types/room';
 
 type BoardProps = {
     deckCards?: CardInfo[];
+    perspective?: PlayerId;  // 'p1' | 'p2' — どちらのプレイヤー視点で表示するか
+    firebaseSync?: FirebaseSyncRef;
+    roomId?: string;
+    onRemoteUpdate?: (setter: (state: GameState) => void) => void;
 };
 
-export function Board({ deckCards }: BoardProps) {
-    const { gameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck } = useGameState(deckCards);
+export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onRemoteUpdate }: BoardProps) {
+    const { gameState, setGameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck } = useGameState(deckCards, firebaseSync);
+
+    // リモート更新コールバックを親に公開
+    if (onRemoteUpdate) {
+        onRemoteUpdate((state: GameState) => setGameState(state));
+    }
     const { logs, addLog } = useGameLog();
     const { sensors, activeCardData, handleDragStart, handleDragEnd } = useBoardDragDrop({ moveCard, attachCard, addLog });
     const [showDebug, setShowDebug] = useState(false);
@@ -27,34 +38,40 @@ export function Board({ deckCards }: BoardProps) {
     const [isLogOpen, setIsLogOpen] = useState(true);
     const coinTossRef = useRef<CoinTossHandle>(null);
 
+    // perspective に基づくプレイヤーID
+    const myId = perspective;                     // 'p1' or 'p2'
+    const opponentId = perspective === 'p1' ? 'p2' : 'p1';
+    const myDndId = perspective === 'p1' ? 'player-1' : 'player-2';
+    const opponentDndId = perspective === 'p1' ? 'player-2' : 'player-1';
+
     const handleDrawCards = useCallback((count: number) => {
         for (let i = 0; i < count; i++) {
-            drawCard('p1');
+            drawCard(myId);
         }
-        addLog('p1', 'draw', `カードを${count}枚引いた`);
-    }, [drawCard, addLog]);
+        addLog(myId, 'draw', `カードを${count}枚引いた`);
+    }, [drawCard, addLog, myId]);
 
     const handlePrizeToHand = useCallback(() => {
-        const prizeCards = getCardsByLocation('p1-prize');
+        const prizeCards = getCardsByLocation(`${myId}-prize`);
         if (prizeCards.length === 0) return;
         const topCard = prizeCards[prizeCards.length - 1];
-        moveCard(topCard.id, 'p1-prize', 'p1-hand');
-        addLog('p1', 'move', 'サイドからカードを1枚手札に加えた');
-    }, [getCardsByLocation, moveCard, addLog]);
+        moveCard(topCard.id, `${myId}-prize`, `${myId}-hand`);
+        addLog(myId, 'move', 'サイドからカードを1枚手札に加えた');
+    }, [getCardsByLocation, moveCard, addLog, myId]);
 
     useKeyboardShortcuts({
         drawCards: handleDrawCards,
-        shuffleDeck: () => { shuffleDeck('p1'); addLog('p1', 'shuffle', 'デッキをシャッフルした'); },
+        shuffleDeck: () => { shuffleDeck(myId); addLog(myId, 'shuffle', 'デッキをシャッフルした'); },
         toggleDeckModal: () => setShowDeckModal(prev => !prev),
         toggleTrashModal: () => setShowTrashModal(prev => !prev),
-        returnAllHandAndShuffle: () => { returnAllHandToDeck('p1', false, true); addLog('p1', 'return', '手札を全て山札に戻してシャッフルした'); },
+        returnAllHandAndShuffle: () => { returnAllHandToDeck(myId, false, true); addLog(myId, 'return', '手札を全て山札に戻してシャッフルした'); },
         tossCoin: () => coinTossRef.current?.toss(),
         toggleLog: () => setIsLogOpen(prev => !prev),
         prizeToHand: handlePrizeToHand,
     }, showDeckModal || showTrashModal);
 
-    const p1 = gameState.p1;
-    if (!p1) return <div className="text-white">Loading...</div>;
+    const myPlayer = gameState[myId];
+    if (!myPlayer) return <div className="text-white">Loading...</div>;
 
     return (
         <DndContext
@@ -70,25 +87,29 @@ export function Board({ deckCards }: BoardProps) {
                     </h1>
                     <div className="flex items-center gap-3">
                         <CoinToss ref={coinTossRef} onResult={(result: CoinResult) => {
-                            addLog('p1', 'coin', `コイントス: ${result === 'heads' ? '表' : '裏'}`);
+                            addLog(myId, 'coin', `コイントス: ${result === 'heads' ? '表' : '裏'}`);
                         }} />
                         <div className="text-sm font-medium px-3 py-1 bg-slate-700 rounded-full">
-                            Room: <span className="text-blue-300">{gameState.roomId}</span>
+                            Room: <span className="text-blue-300">{roomId || gameState.roomId}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Opponent Area (Player 2) */}
-                {gameState.p2 && (
+                {/* Opponent Area */}
+                {gameState[opponentId] && (
                     <OpponentArea
-                        p2={gameState.p2}
+                        playerId={opponentId}
+                        dndPlayerId={opponentDndId}
+                        opponent={gameState[opponentId]}
                         getCardsByLocation={getCardsByLocation}
                         getAttachedCards={getAttachedCards}
                     />
                 )}
 
-                {/* Player 1 Area */}
+                {/* My Player Area */}
                 <PlayerArea
+                    playerId={myId}
+                    dndPlayerId={myDndId}
                     getCardsByLocation={getCardsByLocation}
                     getAttachedCards={getAttachedCards}
                     updateCardStatus={updateCardStatus}
@@ -96,7 +117,6 @@ export function Board({ deckCards }: BoardProps) {
                     trashWithAttachments={trashWithAttachments}
                     drawCard={drawCard}
                     shuffleDeck={shuffleDeck}
-
                     returnAllHandToDeck={returnAllHandToDeck}
                     addLog={addLog}
                     setShowDeckModal={setShowDeckModal}
@@ -128,21 +148,21 @@ export function Board({ deckCards }: BoardProps) {
             {showDeckModal && (
                 <CardListModal
                     title="山札の確認"
-                    cards={getCardsByLocation('p1-deck')}
+                    cards={getCardsByLocation(`${myId}-deck`)}
                     onClose={() => setShowDeckModal(false)}
                     actions={[
                         {
                             label: '手札に加える',
                             onClick: (cardId) => {
-                                moveCard(cardId, 'p1-deck', 'p1-hand');
-                                addLog('p1', 'move', '山札からカードを手札に加えた');
+                                moveCard(cardId, `${myId}-deck`, `${myId}-hand`);
+                                addLog(myId, 'move', '山札からカードを手札に加えた');
                             },
                         },
                         {
                             label: 'トラッシュ',
                             onClick: (cardId) => {
-                                moveCard(cardId, 'p1-deck', 'p1-trash');
-                                addLog('p1', 'trash', '山札からカードをトラッシュした');
+                                moveCard(cardId, `${myId}-deck`, `${myId}-trash`);
+                                addLog(myId, 'trash', '山札からカードをトラッシュした');
                             },
                         },
                     ]}
@@ -154,35 +174,35 @@ export function Board({ deckCards }: BoardProps) {
             {showTrashModal && (
                 <CardListModal
                     title="トラッシュの確認"
-                    cards={getCardsByLocation('p1-trash')}
+                    cards={getCardsByLocation(`${myId}-trash`)}
                     onClose={() => setShowTrashModal(false)}
                     actions={[
                         {
                             label: '手札に加える',
                             onClick: (cardId) => {
-                                moveCard(cardId, 'p1-trash', 'p1-hand');
-                                addLog('p1', 'move', 'トラッシュからカードを手札に加えた');
+                                moveCard(cardId, `${myId}-trash`, `${myId}-hand`);
+                                addLog(myId, 'move', 'トラッシュからカードを手札に加えた');
                             },
                         },
                         {
                             label: '山札の上へ',
                             onClick: (cardId) => {
                                 returnToDeck(cardId, false);
-                                addLog('p1', 'return', 'トラッシュからカードを山札の上に戻した');
+                                addLog(myId, 'return', 'トラッシュからカードを山札の上に戻した');
                             },
                         },
                         {
                             label: '山札の下へ',
                             onClick: (cardId) => {
                                 returnToDeck(cardId, true);
-                                addLog('p1', 'return', 'トラッシュからカードを山札の下に戻した');
+                                addLog(myId, 'return', 'トラッシュからカードを山札の下に戻した');
                             },
                         },
                         {
                             label: 'ベンチへ',
                             onClick: (cardId) => {
-                                moveCard(cardId, 'p1-trash', 'p1-bench');
-                                addLog('p1', 'move', 'トラッシュからカードをベンチに出した');
+                                moveCard(cardId, `${myId}-trash`, `${myId}-bench`);
+                                addLog(myId, 'move', 'トラッシュからカードをベンチに出した');
                             },
                         },
                     ]}
