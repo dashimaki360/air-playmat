@@ -20,17 +20,23 @@ type FirebaseGameState = {
     };
 };
 
-const stateToFirebase = (state: GameState): FirebaseGameState => ({
-    m: state.m,
-    p1: { n: state.p1.n, d: state.p1.d, c: state.p1.c },
-    p2: { n: state.p2.n, d: state.p2.d, c: state.p2.c },
-});
+const stateToFirebase = (state: GameState): FirebaseGameState =>
+    JSON.parse(JSON.stringify({
+        m: state.m,
+        p1: { n: state.p1.n, d: state.p1.d, c: state.p1.c },
+        p2: { n: state.p2.n, d: state.p2.d, c: state.p2.c },
+    }));
+
+const restoreCards = (cards: Record<string, Card>): Record<string, Card> =>
+    Object.fromEntries(
+        Object.entries(cards).map(([id, c]) => [id, { ...c, cnd: c.cnd || [], d: c.d ?? 0 }])
+    );
 
 const firebaseToState = (roomId: string, fb: FirebaseGameState): GameState => ({
     roomId,
     m: fb.m,
-    p1: { n: fb.p1.n, d: fb.p1.d || [], c: fb.p1.c || {} },
-    p2: { n: fb.p2.n, d: fb.p2.d || [], c: fb.p2.c || {} },
+    p1: { n: fb.p1.n, d: fb.p1.d || [], c: restoreCards(fb.p1.c || {}) },
+    p2: { n: fb.p2.n, d: fb.p2.d || [], c: restoreCards(fb.p2.c || {}) },
 });
 
 type UseFirebaseSyncProps = {
@@ -43,13 +49,12 @@ type UseFirebaseSyncProps = {
 export function useFirebaseSync({ roomId, playerId, enabled, onRemoteUpdate }: UseFirebaseSyncProps) {
     const lastActionRef = useRef<string>('');
 
-    // 初期状態の書き込み（p1のみ）
+    // 初期状態の書き込み（対戦開始時に1回だけ呼ばれる）
     const writeInitialState = useCallback(async (state: GameState) => {
-        if (!enabled) return;
         const fbState = stateToFirebase(state);
         await update(ref(db), { [`rooms/${roomId}/state`]: fbState });
         lastActionRef.current = state.m.a;
-    }, [roomId, enabled]);
+    }, [roomId]);
 
     // delta 書き込み
     const pushUpdate = useCallback((prev: GameState, next: GameState) => {

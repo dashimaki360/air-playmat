@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { DeckData, CardInfo } from '../types/game';
+
+const DEFAULT_DECK_CODE = 'RSp2M2-ioZymR-SpXMyp';
 
 export function useDeckManager() {
     const [decks, setDecks] = useState<DeckData[]>([]);
-    const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+    const [selectedIndex, setSelectedIndex] = useState<number | null>(0);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +39,16 @@ export function useDeckManager() {
     const selectDeck = (index: number) => {
         setSelectedIndex(index);
     };
+
+    // 起動時にデフォルトデッキを自動読み込み
+    const autoImported = useRef(false);
+    useEffect(() => {
+        if (!autoImported.current) {
+            autoImported.current = true;
+            importDeck(DEFAULT_DECK_CODE);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const removeDeck = (index: number) => {
         setDecks(prev => prev.filter((_, i) => i !== index));

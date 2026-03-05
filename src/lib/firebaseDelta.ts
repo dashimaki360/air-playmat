@@ -1,5 +1,12 @@
 import type { GameState } from '../types/game';
 
+/** オブジェクトから undefined 値のプロパティを除去する */
+function stripUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+    return Object.fromEntries(
+        Object.entries(obj).filter(([, v]) => v !== undefined)
+    ) as Partial<T>;
+}
+
 /**
  * prev と next の GameState を比較し、Firebase に書き込む差分パスを返す純粋関数。
  * 変更されたカード・デッキ配列・メタのみを含む。
@@ -38,7 +45,7 @@ export function computeFirebaseUpdates(
 
             if (!prevCard && nextCard) {
                 // 新規カード
-                updates[`${basePath}/${pId}/c/${cardId}`] = nextCard;
+                updates[`${basePath}/${pId}/c/${cardId}`] = stripUndefined(nextCard);
             } else if (prevCard && !nextCard) {
                 // 削除されたカード
                 updates[`${basePath}/${pId}/c/${cardId}`] = null;
@@ -48,7 +55,7 @@ export function computeFirebaseUpdates(
                     prevCard.d !== nextCard.d || prevCard.o !== nextCard.o ||
                     prevCard.att !== nextCard.att ||
                     JSON.stringify(prevCard.cnd) !== JSON.stringify(nextCard.cnd)) {
-                    updates[`${basePath}/${pId}/c/${cardId}`] = nextCard;
+                    updates[`${basePath}/${pId}/c/${cardId}`] = stripUndefined(nextCard);
                 }
             }
         }

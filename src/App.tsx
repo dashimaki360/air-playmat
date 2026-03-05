@@ -18,7 +18,7 @@ function App() {
   const { decks, selectedIndex, isLoading, error, importDeck, selectDeck, removeDeck } = useDeckManager();
   const { roomState, createRoom, joinRoom, setReady, startGame, leaveRoom } = useRoom();
 
-  const selectedDeck = selectedIndex !== null ? decks[selectedIndex] : null;
+  const selectedDeck = selectedIndex !== null && selectedIndex < decks.length ? decks[selectedIndex] : null;
 
   // Board の setGameState を保持するref（リモート更新用）
   const boardSetStateRef = useRef<((state: GameState) => void) | null>(null);

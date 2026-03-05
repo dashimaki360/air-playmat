@@ -501,7 +501,8 @@ export function useGameState(deckCards?: CardInfo[], firebaseSync?: FirebaseSync
         setGameState(prev => {
             const next = updater(prev);
             if (next !== prev && firebaseSync) {
-                firebaseSync.pushUpdate(prev, next);
+                const sync = firebaseSync;
+                queueMicrotask(() => sync.pushUpdate(prev, next));
             }
             return next;
         });

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { useGameState } from '../hooks/useGameState';
 import type { FirebaseSyncRef } from '../hooks/useGameState';
@@ -27,9 +27,11 @@ export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onR
     const { gameState, setGameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck } = useGameState(deckCards, firebaseSync);
 
     // リモート更新コールバックを親に公開
-    if (onRemoteUpdate) {
-        onRemoteUpdate((state: GameState) => setGameState(state));
-    }
+    useEffect(() => {
+        if (onRemoteUpdate) {
+            onRemoteUpdate((state: GameState) => setGameState(state));
+        }
+    }, [onRemoteUpdate, setGameState]);
     const { logs, addLog } = useGameLog();
     const { sensors, activeCardData, handleDragStart, handleDragEnd } = useBoardDragDrop({ moveCard, attachCard, addLog });
     const [showDebug, setShowDebug] = useState(false);
