@@ -440,15 +440,9 @@ export const generateInitialPlayer = (playerPrefix: string, playerName: string, 
     const allCards = createFlatDeck(playerPrefix, deckCards);
 
     // Distribute 60 cards
-    // Active: 1, Bench: 0, Hand: 7, Prize: 6, Deck: 46
+    // Hand: 7, Prize: 6, Deck: 47 (activeは手札から選んで配置)
 
     let currentIdx = 0;
-
-    // Active (1)
-    if (currentIdx < allCards.length) {
-        const c = allCards[currentIdx++];
-        add({ ...c, l: `${playerPrefix}-active`, o: 0, f: true });
-    }
 
     // Hand (7)
     for (let i = 0; i < 7; i++) {

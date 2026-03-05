@@ -41,14 +41,14 @@ describe('computeFirebaseUpdates', () => {
 
     it('attachCardで変更されたカードのみを含む', () => {
         const state = createInitialState();
-        const active = Object.values(state.p1.c).find(c => c.l === 'p1-active')!;
-        const hand = Object.values(state.p1.c).find(c => c.l === 'p1-hand')!;
-        const next = applyAttachCard(state, hand.id, active.id);
+        const [first, second] = Object.values(state.p1.c).filter(c => c.l === 'p1-hand');
+        const withActive = applyMoveCard(state, first.id, 'p1-hand', 'p1-active');
+        const next = applyAttachCard(withActive, second.id, first.id);
 
-        const updates = computeFirebaseUpdates(roomId, state, next);
+        const updates = computeFirebaseUpdates(roomId, withActive, next);
 
         // attach されたカードの変更
-        expect(updates[`rooms/${roomId}/state/p1/c/${hand.id}`]).toBeDefined();
+        expect(updates[`rooms/${roomId}/state/p1/c/${second.id}`]).toBeDefined();
         // lastAction
         expect(updates[`rooms/${roomId}/state/m/a`]).toBeDefined();
     });
