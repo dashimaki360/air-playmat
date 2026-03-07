@@ -1,5 +1,5 @@
 import { Card as CardComponent } from './Card';
-import type { Card } from '../types/game';
+import type { Card, CardInfo } from '../types/game';
 
 export type CardAction = {
     label: string;
@@ -12,9 +12,10 @@ type CardListModalProps = {
     onClose: () => void;
     actions?: CardAction[];
     footerMessage?: string;
+    cardLookup?: Map<string, CardInfo>;
 };
 
-export function CardListModal({ title, cards, onClose, actions = [], footerMessage }: CardListModalProps) {
+export function CardListModal({ title, cards, onClose, actions = [], footerMessage, cardLookup }: CardListModalProps) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
             <div
@@ -47,6 +48,7 @@ export function CardListModal({ title, cards, onClose, actions = [], footerMessa
                                         area="deck"
                                         playerId="player-1"
                                         onUpdateStatus={() => {}}
+                                        cardLookup={cardLookup}
                                     />
                                     {actions.length > 0 && (
                                         <div className="flex gap-1 flex-wrap justify-center">

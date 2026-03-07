@@ -83,12 +83,16 @@ export async function getDeckList(deckCode: string): Promise<DeckList> {
                       const count = parseInt(parts[1] || '1', 10);
                       if (id && count > 0) {
                           const imagePath = imageDict[id] || `/assets/images/card_images/large/${id}.jpg`;
+                          // パス部分のみ保存（プレフィックスは CARD_IMAGE_BASE_URL で補完）
+                          const fullUrl = imagePath.startsWith('/') ? `https://www.pokemon-card.com${imagePath}` : imagePath;
+                          const BASE_PREFIX = 'https://www.pokemon-card.com/assets/images/card_images/large/';
+                          const relPath = fullUrl.startsWith(BASE_PREFIX) ? fullUrl.slice(BASE_PREFIX.length) : fullUrl;
                           cards.push({
                               id,
                               name: nameDict[id] || 'Unknown',
                               count,
                               type: cat.type,
-                              imageUrl: imagePath.startsWith('/') ? `https://www.pokemon-card.com${imagePath}` : imagePath
+                              imageUrl: relPath,
                           });
                       }
                   }

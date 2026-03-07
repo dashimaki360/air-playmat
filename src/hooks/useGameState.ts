@@ -13,20 +13,22 @@ const CARD_TYPE_MAP: Record<string, CardType> = {
     'わざマシン':       'technical-machine',
 };
 
-// Utility to generate a basic mock card with loc and ord
-const createMockCard = (id: string, name: string, l: string, o: number = 0, imageUrl?: string, tp?: CardType): Card => ({
+// カードインスタンス生成（cId で CardInfo を参照する設計）
+const createCardInstance = (id: string, cId: string, l: string, o: number = 0, tp?: CardType): Card => ({
     id,
-    tId: 'mock-template',
+    cId,
     f: true,
     d: 0,
     cnd: [],
-    name,
     l,
     o,
     att: undefined,
-    imageUrl,
     tp,
 });
+
+// deckCards の配列から cId → CardInfo のルックアップ Map を構築
+export const buildCardLookup = (deckCards: CardInfo[]): Map<string, CardInfo> =>
+    new Map(deckCards.map(c => [c.id, c]));
 
 // Shuffle function
 export const shuffle = <T>(array: T[]): T[] => {
@@ -411,11 +413,11 @@ export function applyReturnAllHandToDeck(
 
 // Flatten deck data
 const createFlatDeck = (idPrefix: string, deckCards?: CardInfo[]): Card[] => {
-    const source = deckCards || defaultDeck.cards;
+    const source = deckCards || (defaultDeck.cards as CardInfo[]);
     let flatCards: Card[] = [];
     source.forEach((ci) => {
         for (let i = 0; i < ci.count; i++) {
-            flatCards.push(createMockCard('', ci.name, '', 0, ci.imageUrl, CARD_TYPE_MAP[ci.type || '']));
+            flatCards.push(createCardInstance('', ci.id, '', 0, CARD_TYPE_MAP[ci.type || '']));
         }
     });
     // Shuffle the deck initially

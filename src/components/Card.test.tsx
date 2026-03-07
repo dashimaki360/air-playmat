@@ -1,7 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { Card } from './Card';
-import type { Card as CardType } from '../types/game';
+import type { Card as CardType, CardInfo } from '../types/game';
+import { CARD_IMAGE_BASE_URL } from '../constants';
 
 // Mock dnd-kit since Card uses it
 vi.mock('@dnd-kit/core', () => ({
@@ -14,13 +15,16 @@ vi.mock('@dnd-kit/core', () => ({
     }),
 }));
 
+const cardLookup = new Map<string, CardInfo>([
+    ['pikachu-id', { id: 'pikachu-id', name: 'Pikachu', count: 1, imageUrl: 'SV1/pikachu.jpg' }],
+]);
+
 const mockCardWithoutImage: CardType = {
     id: 'test-1',
-    tId: 'mock-template',
+    cId: 'unknown-id',
     f: true,
     d: 0,
     cnd: [],
-    name: 'Pikachu',
     l: 'p1-active',
     o: 0,
 };
@@ -28,7 +32,7 @@ const mockCardWithoutImage: CardType = {
 const mockCardWithImage: CardType = {
     ...mockCardWithoutImage,
     id: 'test-2',
-    imageUrl: 'https://example.com/pikachu.jpg',
+    cId: 'pikachu-id',
 };
 
 const mockFacedownCard: CardType = {
@@ -39,22 +43,22 @@ const mockFacedownCard: CardType = {
 
 describe('Card Component', () => {
     it('renders card name when face up', () => {
-        render(<Card card={mockCardWithoutImage} area="active" playerId="p1" onUpdateStatus={() => {}} />);
-        expect(screen.getByText('Pikachu')).toBeInTheDocument();
+        render(<Card card={mockCardWithoutImage} area="active" playerId="p1" onUpdateStatus={() => {}} cardLookup={cardLookup} />);
+        expect(screen.getByText('Card')).toBeInTheDocument();
     });
 
     it('renders image when imageUrl is provided and face up, but not the name', () => {
-        render(<Card card={mockCardWithImage} area="active" playerId="p1" onUpdateStatus={() => {}} />);
+        render(<Card card={mockCardWithImage} area="active" playerId="p1" onUpdateStatus={() => {}} cardLookup={cardLookup} />);
         const img = screen.getByRole('img');
         expect(img).toBeInTheDocument();
-        expect(img).toHaveAttribute('src', 'https://example.com/pikachu.jpg');
+        expect(img).toHaveAttribute('src', CARD_IMAGE_BASE_URL + 'SV1/pikachu.jpg');
 
         // Name should not be rendered
         expect(screen.queryByText('Pikachu')).not.toBeInTheDocument();
     });
 
     it('does not render image or name when face down', () => {
-        render(<Card card={mockFacedownCard} area="active" playerId="p1" onUpdateStatus={() => {}} />);
+        render(<Card card={mockFacedownCard} area="active" playerId="p1" onUpdateStatus={() => {}} cardLookup={cardLookup} />);
         expect(screen.queryByText('Pikachu')).not.toBeInTheDocument();
         expect(screen.queryByRole('img')).not.toBeInTheDocument();
     });
@@ -182,7 +186,7 @@ describe('Card ダメージ・状態異常の表示', () => {
             />
         );
         // デッキカードは裏向き表示なのでステータスセクション自体が存在しない
-        expect(screen.queryByText('Pikachu')).not.toBeInTheDocument();
+        expect(screen.queryByText('Card')).not.toBeInTheDocument();
     });
 
     it('attachedCount > 0 のときバッジが表示される', () => {

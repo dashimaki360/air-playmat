@@ -31,8 +31,8 @@ describe('useGameState hook', () => {
         expect(p1Deck.every(c => c.f === false)).toBe(true);
 
         const sampleCard = p1Hand[0];
-        const cardInDataFile = defaultDeck.cards.find(c => c.name === sampleCard.name);
-        expect(sampleCard.imageUrl).toBe(cardInDataFile?.imageUrl);
+        const cardInDataFile = defaultDeck.cards.find(c => c.id === sampleCard.cId);
+        expect(cardInDataFile).toBeDefined();
     });
 
     // ── helpers ──────────────────────────────────────────────────

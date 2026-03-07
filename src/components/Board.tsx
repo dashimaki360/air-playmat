@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
-import { useGameState } from '../hooks/useGameState';
+import { useGameState, buildCardLookup } from '../hooks/useGameState';
 import type { FirebaseSyncRef } from '../hooks/useGameState';
 import { useGameLog } from '../hooks/useGameLog';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
@@ -14,6 +14,7 @@ import { PlayerArea } from './PlayerArea';
 import type { CoinResult, CoinTossHandle } from './CoinToss';
 import type { CardInfo, GameState } from '../types/game';
 import type { PlayerId } from '../types/room';
+import defaultDeck from '../data/defaultDeck.json';
 
 type BoardProps = {
     deckCards?: CardInfo[];
@@ -26,6 +27,9 @@ type BoardProps = {
 export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onRemoteUpdate }: BoardProps) {
     const { gameState, setGameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck } = useGameState(deckCards, firebaseSync);
 
+    // cId → CardInfo のルックアップ Map を構築
+    const cardLookup = useMemo(() => buildCardLookup(deckCards || (defaultDeck.cards as CardInfo[])), [deckCards]);
+
     // リモート更新コールバックを親に公開
     useEffect(() => {
         if (onRemoteUpdate) {
@@ -33,7 +37,7 @@ export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onR
         }
     }, [onRemoteUpdate, setGameState]);
     const { logs, addLog } = useGameLog();
-    const { sensors, activeCardData, handleDragStart, handleDragEnd } = useBoardDragDrop({ moveCard, attachCard, addLog });
+    const { sensors, activeCardData, handleDragStart, handleDragEnd } = useBoardDragDrop({ moveCard, attachCard, addLog, cardLookup });
     const [showDebug, setShowDebug] = useState(false);
     const [showDeckModal, setShowDeckModal] = useState(false);
     const [showTrashModal, setShowTrashModal] = useState(false);
@@ -105,6 +109,7 @@ export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onR
                         opponent={gameState[opponentId]}
                         getCardsByLocation={getCardsByLocation}
                         getAttachedCards={getAttachedCards}
+                        cardLookup={cardLookup}
                     />
                 )}
 
@@ -123,6 +128,7 @@ export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onR
                     addLog={addLog}
                     setShowDeckModal={setShowDeckModal}
                     setShowTrashModal={setShowTrashModal}
+                    cardLookup={cardLookup}
                 />
             </div>
 
@@ -169,6 +175,7 @@ export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onR
                         },
                     ]}
                     footerMessage="※ 左端が山札の下、右端が山札の上です"
+                    cardLookup={cardLookup}
                 />
             )}
 
@@ -178,6 +185,7 @@ export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onR
                     title="トラッシュの確認"
                     cards={getCardsByLocation(`${myId}-trash`)}
                     onClose={() => setShowTrashModal(false)}
+                    cardLookup={cardLookup}
                     actions={[
                         {
                             label: '手札に加える',
@@ -219,6 +227,7 @@ export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onR
                             area={activeCardData.sourceArea}
                             playerId={activeCardData.playerId}
                             onUpdateStatus={() => { }}
+                            cardLookup={cardLookup}
                         />
                     </div>
                 ) : null}

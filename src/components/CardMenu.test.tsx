@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { CardMenu } from './CardMenu';
-import type { CardStatusCondition, Card as CardType } from '../types/game';
+import type { CardStatusCondition, Card as CardType, CardInfo } from '../types/game';
 
 describe('CardMenu', () => {
     const onAddDamage = vi.fn();
@@ -156,8 +156,11 @@ describe('CardMenu', () => {
 
     // ── つけたカード操作 ─────────────────────────────────────────
     describe('つけたカード操作', () => {
+        const testCardLookup = new Map<string, CardInfo>([
+            ['e1', { id: 'e1', name: 'Fire Energy', count: 1, imageUrl: 'SV1/fire_energy.jpg' }],
+        ]);
         const attachedCards: CardType[] = [
-            { id: 'energy-1', tId: 'e1', f: true, d: 0, cnd: [], l: 'p1-active', o: 0, name: 'Fire Energy' },
+            { id: 'energy-1', cId: 'e1', f: true, d: 0, cnd: [], l: 'p1-active', o: 0 },
         ];
 
         it('付属カードがあるとき「つけたカード」ボタンが表示される', () => {
@@ -171,27 +174,27 @@ describe('CardMenu', () => {
         });
 
         it('「つけたカード」ボタンをクリックすると一覧が展開される', () => {
-            renderMenu({ area: 'active', attachedCards, onDetachCard });
+            renderMenu({ area: 'active', attachedCards, cardLookup: testCardLookup, onDetachCard });
             fireEvent.click(screen.getByText(/つけたカード/));
             expect(screen.getByText('Fire Energy')).toBeInTheDocument();
         });
 
         it('はがすボタンをクリックすると onDetachCard が正しい引数で呼ばれる', () => {
-            renderMenu({ area: 'active', attachedCards, onDetachCard });
+            renderMenu({ area: 'active', attachedCards, cardLookup: testCardLookup, onDetachCard });
             fireEvent.click(screen.getByText(/つけたカード/));
             fireEvent.click(screen.getByTitle('手札に戻す'));
             expect(onDetachCard).toHaveBeenCalledWith('energy-1', 'p1-hand');
         });
 
         it('player-2 のカードははがすと p2-hand に戻る', () => {
-            renderMenu({ area: 'active', playerId: 'player-2', attachedCards, onDetachCard });
+            renderMenu({ area: 'active', playerId: 'player-2', attachedCards, cardLookup: testCardLookup, onDetachCard });
             fireEvent.click(screen.getByText(/つけたカード/));
             fireEvent.click(screen.getByTitle('手札に戻す'));
             expect(onDetachCard).toHaveBeenCalledWith('energy-1', 'p2-hand');
         });
 
         it('再度クリックすると一覧が折りたたまれる', () => {
-            renderMenu({ area: 'active', attachedCards, onDetachCard });
+            renderMenu({ area: 'active', attachedCards, cardLookup: testCardLookup, onDetachCard });
             const toggleBtn = screen.getByText(/つけたカード/);
             fireEvent.click(toggleBtn);
             expect(screen.getByText('Fire Energy')).toBeInTheDocument();

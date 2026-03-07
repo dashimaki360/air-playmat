@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Minus, Skull, Flame, Moon, Zap, HelpCircle, Layers, Trash2 } from 'lucide-react';
-import type { CardStatusCondition, AreaId, Card as CardType } from '../types/game';
+import type { CardStatusCondition, AreaId, Card as CardType, CardInfo } from '../types/game';
+import { CARD_IMAGE_BASE_URL } from '../constants';
 
 interface CardMenuProps {
     area: AreaId;
@@ -10,6 +11,8 @@ interface CardMenuProps {
     currentStatus: CardStatusCondition[];
     /** このポケモンに付属しているカード一覧 */
     attachedCards?: CardType[];
+    /** cId → CardInfo のルックアップ Map */
+    cardLookup?: Map<string, CardInfo>;
     /** カードをはがす（カードID, 移動先） */
     onDetachCard?: (cardId: string, targetLoc: string) => void;
     /** きぜつ（ポケモンと付属カード全てをトラッシュ） */
@@ -23,6 +26,7 @@ export function CardMenu({
     onToggleStatus,
     currentStatus,
     attachedCards = [],
+    cardLookup,
     onDetachCard,
     onTrashWithAttachments,
 }: CardMenuProps) {
@@ -104,13 +108,16 @@ export function CardMenu({
                     {/* つけたカード一覧 */}
                     {showAttached && attachedCards.length > 0 && (
                         <div className="bg-slate-900 rounded p-2 mb-1 flex flex-col gap-1 max-h-[200px] overflow-y-auto">
-                            {attachedCards.map((c) => (
+                            {attachedCards.map((c) => {
+                                const info = cardLookup?.get(c.cId);
+                                const imgUrl = info?.imageUrl ? CARD_IMAGE_BASE_URL + info.imageUrl : undefined;
+                                return (
                                 <div key={c.id} className="flex items-center justify-between gap-1 text-xs">
                                     <div className="flex items-center gap-1 min-w-0 flex-1">
-                                        {c.imageUrl ? (
-                                            <img src={c.imageUrl} alt="" className="w-6 h-8 rounded object-cover flex-shrink-0" />
+                                        {imgUrl ? (
+                                            <img src={imgUrl} alt="" className="w-6 h-8 rounded object-cover flex-shrink-0" />
                                         ) : null}
-                                        <span className="truncate">{c.name || 'Card'}</span>
+                                        <span className="truncate">{info?.name || 'Card'}</span>
                                     </div>
                                     {onDetachCard && (
                                         <button
@@ -122,7 +129,8 @@ export function CardMenu({
                                         </button>
                                     )}
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
 

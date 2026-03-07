@@ -3,7 +3,7 @@ import { CardStack } from './CardStack';
 import { DroppableArea } from './DroppableArea';
 import { StackedArea } from './StackedArea';
 import { Search, Shuffle } from 'lucide-react';
-import type { Card as CardType, AreaId } from '../types/game';
+import type { Card as CardType, AreaId, CardInfo } from '../types/game';
 import type { GameLogAction } from '../hooks/useGameLog';
 
 type PlayerAreaProps = {
@@ -20,6 +20,7 @@ type PlayerAreaProps = {
     addLog: (player: string | null, action: GameLogAction, message: string) => void;
     setShowDeckModal: (show: boolean) => void;
     setShowTrashModal: (show: boolean) => void;
+    cardLookup?: Map<string, CardInfo>;
 };
 
 export function PlayerArea({
@@ -36,6 +37,7 @@ export function PlayerArea({
     addLog,
     setShowDeckModal,
     setShowTrashModal,
+    cardLookup,
 }: PlayerAreaProps) {
     const renderCard = (card: CardType, area: AreaId, index?: number) => (
         <Card
@@ -45,6 +47,7 @@ export function PlayerArea({
             playerId={dndPid}
             index={index}
             onUpdateStatus={(id, updater) => updateCardStatus(id, updater)}
+            cardLookup={cardLookup}
         />
     );
 
@@ -59,6 +62,7 @@ export function PlayerArea({
                 playerId={dndPid}
                 index={index}
                 onUpdateStatus={(id, updater) => updateCardStatus(id, updater)}
+                cardLookup={cardLookup}
                 onDetachCard={(cardId, targetLoc) => detachCard(cardId, targetLoc)}
                 onTrashWithAttachments={(cardId) => trashWithAttachments(cardId)}
             />
@@ -70,7 +74,7 @@ export function PlayerArea({
             {/* Row 1: Prize, Stadium & Active, Deck */}
             <div className="grid grid-cols-[1fr_80px_160px_1fr] sm:grid-cols-[1fr_100px_180px_1fr] md:grid-cols-[1fr_140px_200px_1fr] gap-2 md:gap-4 min-w-0">
                 <DroppableArea id="prize" title="Prize" playerId={dndPid} className="min-h-[140px] md:min-h-[180px] bg-indigo-900/30 items-center justify-center">
-                    <StackedArea cards={getCardsByLocation(`${pid}-prize`)} area="prize" onUpdateStatus={updateCardStatus} />
+                    <StackedArea cards={getCardsByLocation(`${pid}-prize`)} area="prize" onUpdateStatus={updateCardStatus} cardLookup={cardLookup} />
                 </DroppableArea>
 
                 <DroppableArea id="stadium" title="Stadium" playerId={dndPid} className="min-h-[140px] md:min-h-[180px] items-center justify-center border-slate-600 bg-slate-700/30">
@@ -82,7 +86,7 @@ export function PlayerArea({
                 </DroppableArea>
 
                 <DroppableArea id="deck" title="Deck" playerId={dndPid} className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center relative">
-                    <StackedArea cards={getCardsByLocation(`${pid}-deck`)} area="deck" onUpdateStatus={updateCardStatus} />
+                    <StackedArea cards={getCardsByLocation(`${pid}-deck`)} area="deck" onUpdateStatus={updateCardStatus} cardLookup={cardLookup} />
 
                     {/* Deck Action Buttons */}
                     <div className="flex gap-1 mt-2 z-30">
@@ -118,7 +122,7 @@ export function PlayerArea({
                 </DroppableArea>
 
                 <DroppableArea id="trash" title="Trash" playerId={dndPid} className="min-h-[140px] md:min-h-[180px] bg-slate-800/80 items-center justify-center">
-                    <StackedArea cards={getCardsByLocation(`${pid}-trash`)} area="trash" onUpdateStatus={updateCardStatus} />
+                    <StackedArea cards={getCardsByLocation(`${pid}-trash`)} area="trash" onUpdateStatus={updateCardStatus} cardLookup={cardLookup} />
                     {getCardsByLocation(`${pid}-trash`).length > 0 && (
                         <div className="flex gap-1 mt-2 z-30">
                             <button

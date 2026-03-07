@@ -1,5 +1,5 @@
 import { useDroppable } from '@dnd-kit/core';
-import type { Card as CardType, AreaId } from '../types/game';
+import type { Card as CardType, AreaId, CardInfo } from '../types/game';
 import { Card } from './Card';
 
 interface CardStackProps {
@@ -11,6 +11,8 @@ interface CardStackProps {
     playerId: string;
     index?: number;
     onUpdateStatus: (id: string, updater: (c: CardType) => CardType) => void;
+    /** cId → CardInfo のルックアップ Map */
+    cardLookup?: Map<string, CardInfo>;
     onDetachCard?: (cardId: string, targetLoc: string) => void;
     onTrashWithAttachments?: (cardId: string) => void;
 }
@@ -22,7 +24,7 @@ interface CardStackProps {
  * - エネルギー・道具は上方向にずらして背面に表示（カード上端が見える）
  * - 進化元カードは非表示（メニューから確認可能）
  */
-export function CardStack({ baseCard, attachedCards, area, playerId, index, onUpdateStatus, onDetachCard, onTrashWithAttachments }: CardStackProps) {
+export function CardStack({ baseCard, attachedCards, area, playerId, index, onUpdateStatus, cardLookup, onDetachCard, onTrashWithAttachments }: CardStackProps) {
     // このスタック全体がドロップ先になる（カードの上にカードを重ねる）
     const droppableId = `card-drop-${baseCard.id}`;
     const { isOver, setNodeRef: setDropRef } = useDroppable({
@@ -72,6 +74,7 @@ export function CardStack({ baseCard, attachedCards, area, playerId, index, onUp
                             area={area}
                             playerId={playerId}
                             onUpdateStatus={() => {}} // 付属カードは直接操作不可
+                            cardLookup={cardLookup}
                             isAttached={true}
                         />
                     </div>
@@ -86,6 +89,7 @@ export function CardStack({ baseCard, attachedCards, area, playerId, index, onUp
                     playerId={playerId}
                     index={index}
                     onUpdateStatus={onUpdateStatus}
+                    cardLookup={cardLookup}
                     attachedCount={attachedCards.length}
                     attachedCards={attachedCards}
                     onDetachCard={onDetachCard}

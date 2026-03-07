@@ -1,5 +1,5 @@
 import { CardStack } from './CardStack';
-import type { Card as CardType, AreaId } from '../types/game';
+import type { Card as CardType, AreaId, CardInfo } from '../types/game';
 import type { PlayerState } from '../types/game';
 
 type OpponentAreaProps = {
@@ -8,6 +8,7 @@ type OpponentAreaProps = {
     opponent: PlayerState;
     getCardsByLocation: (loc: string) => CardType[];
     getAttachedCards: (cardId: string) => CardType[];
+    cardLookup?: Map<string, CardInfo>;
 };
 
 export function OpponentArea({
@@ -16,6 +17,7 @@ export function OpponentArea({
     opponent,
     getCardsByLocation,
     getAttachedCards,
+    cardLookup,
 }: OpponentAreaProps) {
     const renderCardStack = (card: CardType, area: AreaId, index?: number) => {
         const attached = getAttachedCards(card.id);
@@ -28,6 +30,7 @@ export function OpponentArea({
                 playerId={dndPid}
                 index={index}
                 onUpdateStatus={() => {}}
+                cardLookup={cardLookup}
             />
         );
     };

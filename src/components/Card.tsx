@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useDraggable } from '@dnd-kit/core';
-import type { Card as CardType, AreaId, DraggableItemData, CardStatusCondition } from '../types/game';
+import type { Card as CardType, AreaId, DraggableItemData, CardStatusCondition, CardInfo } from '../types/game';
+import { CARD_IMAGE_BASE_URL } from '../constants';
 import { CardMenu } from './CardMenu';
 import { Skull, Flame, Moon, Zap, HelpCircle } from 'lucide-react';
 
@@ -19,6 +20,8 @@ interface CardProps {
     playerId: string;
     index?: number;
     onUpdateStatus: (id: string, updater: (c: CardType) => CardType) => void;
+    /** cId → CardInfo のルックアップ Map */
+    cardLookup?: Map<string, CardInfo>;
     /** true の場合、このカードは別のカードに付属して表示されている（ドラッグ・メニュー無効） */
     isAttached?: boolean;
     /** このカードに付属しているカードの数（バッジ表示用） */
@@ -33,10 +36,14 @@ interface CardProps {
     stackBaseCardId?: string;
 }
 
-export function Card({ card, area, playerId, index, onUpdateStatus, isAttached = false, attachedCount = 0, attachedCards, onDetachCard, onTrashWithAttachments, stackBaseCardId }: CardProps) {
+export function Card({ card, area, playerId, index, onUpdateStatus, cardLookup, isAttached = false, attachedCount = 0, attachedCards, onDetachCard, onTrashWithAttachments, stackBaseCardId }: CardProps) {
     const [menuOpen, setMenuOpen] = useState(false);
     const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
     const cardRef = useRef<HTMLDivElement>(null);
+
+    const cardInfo = cardLookup?.get(card.cId);
+    const imageUrl = cardInfo?.imageUrl ? CARD_IMAGE_BASE_URL + cardInfo.imageUrl : undefined;
+    const cardName = cardInfo?.name;
 
     const draggableData: DraggableItemData = {
         type: 'card',
@@ -103,18 +110,18 @@ export function Card({ card, area, playerId, index, onUpdateStatus, isAttached =
                 {card.f ? (
                     <>
                         {/* Background Image */}
-                        {card.imageUrl ? (
+                        {imageUrl ? (
                             <img
-                                src={card.imageUrl}
-                                alt={card.name || 'Card Image'}
+                                src={imageUrl}
+                                alt={cardName || 'Card Image'}
                                 className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
                                 draggable={false}
                             />
                         ) : null}
 
                         {/* Card Content Overlay */}
-                        <div className={`relative z-10 p-1 h-full flex flex-col justify-between ${card.imageUrl ? '' : 'bg-white text-slate-900'}`}>
-                            {!card.imageUrl && <div className="font-bold text-xs truncate drop-shadow-md">{card.name || 'Card'}</div>}
+                        <div className={`relative z-10 p-1 h-full flex flex-col justify-between ${imageUrl ? '' : 'bg-white text-slate-900'}`}>
+                            {!imageUrl && <div className="font-bold text-xs truncate drop-shadow-md">{cardName || 'Card'}</div>}
                             {/* Status Icons */}
                             {area !== 'deck' && area !== 'trash' && (
                                 <div className="flex flex-wrap gap-0.5 mt-1">
@@ -160,6 +167,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus, isAttached =
                         onToggleStatus={handleToggleStatus}
                         currentStatus={card.cnd}
                         attachedCards={attachedCards}
+                        cardLookup={cardLookup}
                         onDetachCard={onDetachCard}
                         onTrashWithAttachments={onTrashWithAttachments}
                     />

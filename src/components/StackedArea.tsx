@@ -1,13 +1,14 @@
 import { Card } from './Card';
-import type { Card as CardType, AreaId } from '../types/game';
+import type { Card as CardType, AreaId, CardInfo } from '../types/game';
 
 type StackedAreaProps = {
     cards: CardType[];
     area: AreaId;
     onUpdateStatus: (id: string, updater: (c: CardType) => CardType) => void;
+    cardLookup?: Map<string, CardInfo>;
 };
 
-export function StackedArea({ cards, area, onUpdateStatus }: StackedAreaProps) {
+export function StackedArea({ cards, area, onUpdateStatus, cardLookup }: StackedAreaProps) {
     if (cards.length === 0) return null;
 
     const topCard = cards[cards.length - 1];
@@ -30,6 +31,7 @@ export function StackedArea({ cards, area, onUpdateStatus }: StackedAreaProps) {
                     playerId="player-1"
                     index={cards.length - 1}
                     onUpdateStatus={onUpdateStatus}
+                    cardLookup={cardLookup}
                 />
             </div>
 

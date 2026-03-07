@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { useBoardDragDrop } from './useBoardDragDrop';
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
+import type { CardInfo } from '../types/game';
 
 // dnd-kit の useSensor/useSensors をモック
 vi.mock('@dnd-kit/core', async () => {
@@ -13,10 +14,18 @@ vi.mock('@dnd-kit/core', async () => {
     };
 });
 
+const testCardLookup = new Map<string, CardInfo>([
+    ['pikachu-id', { id: 'pikachu-id', name: 'ピカチュウ', count: 1, imageUrl: 'SV1/pikachu.jpg' }],
+    ['energy-id', { id: 'energy-id', name: 'エネルギー', count: 1, imageUrl: 'SV1/energy.jpg' }],
+    ['stadium-id', { id: 'stadium-id', name: 'スタジアム', count: 1, imageUrl: 'SV1/stadium.jpg' }],
+    ['charizard-id', { id: 'charizard-id', name: 'リザードン', count: 1, imageUrl: 'SV1/charizard.jpg' }],
+]);
+
 const createMockArgs = () => ({
     moveCard: vi.fn(),
     attachCard: vi.fn(),
     addLog: vi.fn(),
+    cardLookup: testCardLookup,
 });
 
 describe('useBoardDragDrop', () => {
@@ -30,7 +39,7 @@ describe('useBoardDragDrop', () => {
 
         const cardData = {
             type: 'card' as const,
-            card: { id: 'card-1', name: 'ピカチュウ' },
+            card: { id: 'card-1', cId: 'pikachu-id' },
             sourceArea: 'hand' as const,
             playerId: 'player-1',
         };
@@ -66,7 +75,7 @@ describe('useBoardDragDrop', () => {
                     data: {
                         current: {
                             type: 'card',
-                            card: { id: 'card-1', name: 'ピカチュウ' },
+                            card: { id: 'card-1', cId: 'pikachu-id' },
                             sourceArea: 'hand',
                             playerId: 'player-1',
                         },
@@ -95,7 +104,7 @@ describe('useBoardDragDrop', () => {
                     data: {
                         current: {
                             type: 'card',
-                            card: { id: 'card-1', name: 'エネルギー' },
+                            card: { id: 'card-1', cId: 'energy-id' },
                             sourceArea: 'hand',
                             playerId: 'player-1',
                         },
@@ -124,7 +133,7 @@ describe('useBoardDragDrop', () => {
                     data: {
                         current: {
                             type: 'card',
-                            card: { id: 'card-1', name: 'ピカチュウ' },
+                            card: { id: 'card-1', cId: 'pikachu-id' },
                             sourceArea: 'active',
                             playerId: 'player-1',
                         },
@@ -151,7 +160,7 @@ describe('useBoardDragDrop', () => {
                     data: {
                         current: {
                             type: 'card',
-                            card: { id: 'card-1' },
+                            card: { id: 'card-1', cId: 'pikachu-id' },
                             sourceArea: 'hand',
                             playerId: 'player-1',
                         },
@@ -175,7 +184,7 @@ describe('useBoardDragDrop', () => {
                     data: {
                         current: {
                             type: 'card',
-                            card: { id: 'card-1', name: 'ピカチュウ' },
+                            card: { id: 'card-1', cId: 'pikachu-id' },
                             sourceArea: 'hand',
                             playerId: 'player-1',
                         },
@@ -202,7 +211,7 @@ describe('useBoardDragDrop', () => {
                     data: {
                         current: {
                             type: 'card',
-                            card: { id: 'card-1', name: 'スタジアム' },
+                            card: { id: 'card-1', cId: 'stadium-id' },
                             sourceArea: 'hand',
                             playerId: 'player-1',
                         },
@@ -229,7 +238,7 @@ describe('useBoardDragDrop', () => {
                     data: {
                         current: {
                             type: 'card',
-                            card: { id: 'evo-card', name: 'リザードン' },
+                            card: { id: 'evo-card', cId: 'charizard-id' },
                             sourceArea: 'active',
                             playerId: 'player-1',
                             stackBaseCardId: 'base-card',

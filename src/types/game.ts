@@ -13,8 +13,8 @@ export type AreaId =
 
 // Firebase通信量削減のため物理キー名を短縮したカード構造
 export type Card = {
-  id: string; // Unique ID (UUID)
-  tId: string; // templateId (Master ID for image/name)
+  id: string; // Unique instance ID (e.g. "p1-1")
+  cId: string; // Card definition ID (e.g. "45772", deckCards の id に対応)
   f: boolean; // isFaceUp (旧 face)
   d: number; // damageCounters (旧 dmg)
   cnd: CardStatusCondition[]; // statusConditions
@@ -22,10 +22,6 @@ export type Card = {
   o: number; // order / zIndex for stacked areas (旧 ord)
   att?: string; // attachedTo: 親カードのID（進化元・エネルギー/道具の付け先）
   tp?: CardType; // カードの種類（Firebase通信量削減のため短縮）
-
-  // Optional for mock UI display
-  name?: string;
-  imageUrl?: string;
 };
 
 export type PlayerState = {

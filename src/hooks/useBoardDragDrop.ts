@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import type { AreaId, DraggableItemData } from '../types/game';
+import type { AreaId, DraggableItemData, CardInfo } from '../types/game';
 import type { GameLogAction } from './useGameLog';
 
 type UseBoardDragDropArgs = {
     moveCard: (cardId: string, sourceLoc: string, targetLoc: string) => void;
     attachCard: (cardId: string, targetCardId: string) => void;
     addLog: (player: string | null, action: GameLogAction, message: string) => void;
+    cardLookup: Map<string, CardInfo>;
 };
 
-export function useBoardDragDrop({ moveCard, attachCard, addLog }: UseBoardDragDropArgs) {
+export function useBoardDragDrop({ moveCard, attachCard, addLog, cardLookup }: UseBoardDragDropArgs) {
     const [activeCardData, setActiveCardData] = useState<DraggableItemData | null>(null);
 
     const sensors = useSensors(
@@ -43,7 +44,7 @@ export function useBoardDragDrop({ moveCard, attachCard, addLog }: UseBoardDragD
             if (activeData.card.id !== targetCardId) {
                 attachCard(activeData.card.id, targetCardId);
                 const pPrefix = activeData.playerId === 'player-1' ? 'p1' : 'p2';
-                addLog(pPrefix, 'attach', `${activeData.card.name || 'カード'}をつけた`);
+                addLog(pPrefix, 'attach', `${cardLookup.get(activeData.card.cId)?.name || 'カード'}をつけた`);
             }
             return;
         }
@@ -66,7 +67,7 @@ export function useBoardDragDrop({ moveCard, attachCard, addLog }: UseBoardDragD
                 // スタックの場合はベースカードを移動（スタック全体が連動して動く）
                 const cardIdToMove = activeData.stackBaseCardId ?? activeData.card.id;
                 moveCard(cardIdToMove, sourceLoc, targetLoc);
-                addLog(pPrefix, 'move', `${activeData.card.name || 'カード'}を${targetAreaId}に移動`);
+                addLog(pPrefix, 'move', `${cardLookup.get(activeData.card.cId)?.name || 'カード'}を${targetAreaId}に移動`);
             }
         }
     };

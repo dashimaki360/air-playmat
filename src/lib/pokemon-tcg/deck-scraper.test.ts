@@ -17,7 +17,9 @@ describe('deck-scraper', () => {
            const firstCard = deck.cards[0];
            expect(firstCard.id).toBeTypeOf('string');
            expect(firstCard.count).toBeGreaterThan(0);
-           expect(firstCard.imageUrl).toContain('http');
+           // imageUrl はプレフィックス除去済みの相対パス（例: "SV8a/046785_P_TAKERURAIKOEX.jpg"）
+           expect(firstCard.imageUrl).not.toContain('http');
+           expect(firstCard.imageUrl).toContain('.jpg');
         }
     } catch(e) {
         // もしネットワークエラー等で失敗した場合はスキップ扱いとする
