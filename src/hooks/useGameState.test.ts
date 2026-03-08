@@ -7,10 +7,11 @@ describe('useGameState hook', () => {
         const { result } = renderHook(() => useGameState());
         const state = result.current.gameState;
 
-        expect(state.p1).toBeDefined();
-        expect(state.p2).toBeDefined();
+        expect(state.c).toBeDefined();
+        expect(state.d).toBeDefined();
 
-        const p1Cards = Object.values(state.p1.c);
+        const allCards = Object.values(state.c);
+        const p1Cards = allCards.filter(c => c.id.startsWith('p1'));
         expect(p1Cards.length).toBe(60);
 
         const expectedTotalCards = defaultDeck.cards.reduce((sum: number, card: { count: number }) => sum + card.count, 0);
@@ -37,10 +38,10 @@ describe('useGameState hook', () => {
 
     // ── helpers ──────────────────────────────────────────────────
     const getP1Card = (state: ReturnType<typeof useGameState>['gameState'], loc: string) =>
-        Object.values(state.p1.c).find(c => c.l === loc)!;
+        Object.values(state.c).find(c => c.l === loc)!;
 
     const getP1Cards = (state: ReturnType<typeof useGameState>['gameState'], loc: string) =>
-        Object.values(state.p1.c).filter(c => c.l === loc);
+        Object.values(state.c).filter(c => c.l === loc);
 
     // ── moveCard ─────────────────────────────────────────────────
     describe('moveCard', () => {
@@ -50,16 +51,16 @@ describe('useGameState hook', () => {
 
             act(() => { result.current.moveCard(card.id, 'p1-hand', 'p1-bench'); });
 
-            expect(result.current.gameState.p1.c[card.id].l).toBe('p1-bench');
+            expect(result.current.gameState.c[card.id].l).toBe('p1-bench');
         });
 
         it('手札に移動したカードは表向きになる', () => {
             const { result } = renderHook(() => useGameState());
-            const deckCardId = result.current.gameState.p1.d[0];
+            const deckCardId = result.current.gameState.d.p1[0];
 
             act(() => { result.current.moveCard(deckCardId, 'p1-deck', 'p1-hand'); });
 
-            expect(result.current.gameState.p1.c[deckCardId].f).toBe(true);
+            expect(result.current.gameState.c[deckCardId].f).toBe(true);
         });
 
         it('山札に移動したカードは裏向きになる', () => {
@@ -68,7 +69,7 @@ describe('useGameState hook', () => {
 
             act(() => { result.current.moveCard(card.id, 'p1-hand', 'p1-deck'); });
 
-            expect(result.current.gameState.p1.c[card.id].f).toBe(false);
+            expect(result.current.gameState.c[card.id].f).toBe(false);
         });
 
         it('ベンチに移動したカードの状態異常がクリアされる', () => {
@@ -78,18 +79,18 @@ describe('useGameState hook', () => {
             act(() => { result.current.updateCardStatus(card.id, c => ({ ...c, cnd: ['poison'] })); });
             act(() => { result.current.moveCard(card.id, 'p1-hand', 'p1-bench'); });
 
-            expect(result.current.gameState.p1.c[card.id].cnd).toEqual([]);
+            expect(result.current.gameState.c[card.id].cnd).toEqual([]);
         });
 
         it('山札からの移動で山札配列から削除される', () => {
             const { result } = renderHook(() => useGameState());
-            const deckCardId = result.current.gameState.p1.d[0];
-            const initialDeckLength = result.current.gameState.p1.d.length;
+            const deckCardId = result.current.gameState.d.p1[0];
+            const initialDeckLength = result.current.gameState.d.p1.length;
 
             act(() => { result.current.moveCard(deckCardId, 'p1-deck', 'p1-hand'); });
 
-            expect(result.current.gameState.p1.d.length).toBe(initialDeckLength - 1);
-            expect(result.current.gameState.p1.d).not.toContain(deckCardId);
+            expect(result.current.gameState.d.p1.length).toBe(initialDeckLength - 1);
+            expect(result.current.gameState.d.p1).not.toContain(deckCardId);
         });
 
         it('アクティブに移動したカードは既存のアクティブカードとスワップされる', () => {
@@ -101,8 +102,8 @@ describe('useGameState hook', () => {
             // 2枚目をactiveに移動（スワップ発生）
             act(() => { result.current.moveCard(second.id, 'p1-hand', 'p1-active'); });
 
-            expect(result.current.gameState.p1.c[second.id].l).toBe('p1-active');
-            expect(result.current.gameState.p1.c[first.id].l).toBe('p1-hand');
+            expect(result.current.gameState.c[second.id].l).toBe('p1-active');
+            expect(result.current.gameState.c[first.id].l).toBe('p1-hand');
         });
     });
 
@@ -114,7 +115,7 @@ describe('useGameState hook', () => {
 
             act(() => { result.current.attachCard(card.id, target.id); });
 
-            expect(result.current.gameState.p1.c[card.id].att).toBe(target.id);
+            expect(result.current.gameState.c[card.id].att).toBe(target.id);
         });
 
         it('重ねたカードは親カードと同じlocationになる', () => {
@@ -124,7 +125,7 @@ describe('useGameState hook', () => {
             act(() => { result.current.moveCard(first.id, 'p1-hand', 'p1-active'); });
             act(() => { result.current.attachCard(second.id, first.id); });
 
-            expect(result.current.gameState.p1.c[second.id].l).toBe('p1-active');
+            expect(result.current.gameState.c[second.id].l).toBe('p1-active');
         });
 
         it('重ねたカードは表向きになる', () => {
@@ -133,7 +134,7 @@ describe('useGameState hook', () => {
 
             act(() => { result.current.attachCard(card.id, target.id); });
 
-            expect(result.current.gameState.p1.c[card.id].f).toBe(true);
+            expect(result.current.gameState.c[card.id].f).toBe(true);
         });
 
         it('山札のカードをattachすると山札配列から削除される', () => {
@@ -141,13 +142,13 @@ describe('useGameState hook', () => {
             const handCard = getP1Card(result.current.gameState, 'p1-hand');
             act(() => { result.current.moveCard(handCard.id, 'p1-hand', 'p1-active'); });
 
-            const deckCardId = result.current.gameState.p1.d[0];
-            const initialLen = result.current.gameState.p1.d.length;
+            const deckCardId = result.current.gameState.d.p1[0];
+            const initialLen = result.current.gameState.d.p1.length;
 
             act(() => { result.current.attachCard(deckCardId, handCard.id); });
 
-            expect(result.current.gameState.p1.d.length).toBe(initialLen - 1);
-            expect(result.current.gameState.p1.d).not.toContain(deckCardId);
+            expect(result.current.gameState.d.p1.length).toBe(initialLen - 1);
+            expect(result.current.gameState.d.p1).not.toContain(deckCardId);
         });
     });
 
@@ -163,24 +164,24 @@ describe('useGameState hook', () => {
         it('attフィールドが解除される', () => {
             const { result, cardId } = setupAttached();
             act(() => { result.current.detachCard(cardId, 'p1-hand'); });
-            expect(result.current.gameState.p1.c[cardId].att).toBeUndefined();
+            expect(result.current.gameState.c[cardId].att).toBeUndefined();
         });
 
         it('指定したlocationに移動する', () => {
             const { result, cardId } = setupAttached();
             act(() => { result.current.detachCard(cardId, 'p1-hand'); });
-            expect(result.current.gameState.p1.c[cardId].l).toBe('p1-hand');
+            expect(result.current.gameState.c[cardId].l).toBe('p1-hand');
         });
 
         it('山札に戻すとf=falseになり山札配列に追加される', () => {
             const { result, cardId } = setupAttached();
-            const deckLenBefore = result.current.gameState.p1.d.length;
+            const deckLenBefore = result.current.gameState.d.p1.length;
 
             act(() => { result.current.detachCard(cardId, 'p1-deck'); });
 
-            expect(result.current.gameState.p1.c[cardId].f).toBe(false);
-            expect(result.current.gameState.p1.d).toContain(cardId);
-            expect(result.current.gameState.p1.d.length).toBe(deckLenBefore + 1);
+            expect(result.current.gameState.c[cardId].f).toBe(false);
+            expect(result.current.gameState.d.p1).toContain(cardId);
+            expect(result.current.gameState.d.p1.length).toBe(deckLenBefore + 1);
         });
 
         it('手札に戻すとf=trueになる', () => {
@@ -188,12 +189,12 @@ describe('useGameState hook', () => {
             const handCard = getP1Card(result.current.gameState, 'p1-hand');
             act(() => { result.current.moveCard(handCard.id, 'p1-hand', 'p1-active'); });
 
-            const deckCard = result.current.gameState.p1.d[0];
+            const deckCard = result.current.gameState.d.p1[0];
 
             act(() => { result.current.attachCard(deckCard, handCard.id); });
             act(() => { result.current.detachCard(deckCard, 'p1-hand'); });
 
-            expect(result.current.gameState.p1.c[deckCard].f).toBe(true);
+            expect(result.current.gameState.c[deckCard].f).toBe(true);
         });
     });
 
@@ -206,7 +207,7 @@ describe('useGameState hook', () => {
 
             act(() => { result.current.trashWithAttachments(handCard.id); });
 
-            expect(result.current.gameState.p1.c[handCard.id].l).toBe('p1-trash');
+            expect(result.current.gameState.c[handCard.id].l).toBe('p1-trash');
         });
 
         it('ダメージ・状態異常・att がリセットされる', () => {
@@ -219,7 +220,7 @@ describe('useGameState hook', () => {
             });
             act(() => { result.current.trashWithAttachments(handCard.id); });
 
-            const trashed = result.current.gameState.p1.c[handCard.id];
+            const trashed = result.current.gameState.c[handCard.id];
             expect(trashed.d).toBe(0);
             expect(trashed.cnd).toEqual([]);
             expect(trashed.att).toBeUndefined();
@@ -234,7 +235,7 @@ describe('useGameState hook', () => {
             act(() => { result.current.attachCard(second.id, first.id); });
             act(() => { result.current.trashWithAttachments(first.id); });
 
-            expect(result.current.gameState.p1.c[second.id].l).toBe('p1-trash');
+            expect(result.current.gameState.c[second.id].l).toBe('p1-trash');
         });
     });
 
@@ -248,7 +249,7 @@ describe('useGameState hook', () => {
                 result.current.updateCardStatus(card.id, c => ({ ...c, d: 60, cnd: ['poison'] }));
             });
 
-            const updated = result.current.gameState.p1.c[card.id];
+            const updated = result.current.gameState.c[card.id];
             expect(updated.d).toBe(60);
             expect(updated.cnd).toContain('poison');
         });
@@ -258,29 +259,29 @@ describe('useGameState hook', () => {
     describe('drawCard', () => {
         it('山札の一番上のカードが手札に追加される', () => {
             const { result } = renderHook(() => useGameState());
-            const topCardId = result.current.gameState.p1.d[result.current.gameState.p1.d.length - 1];
+            const topCardId = result.current.gameState.d.p1[result.current.gameState.d.p1.length - 1];
 
             act(() => { result.current.drawCard('p1'); });
 
-            expect(result.current.gameState.p1.c[topCardId].l).toBe('p1-hand');
+            expect(result.current.gameState.c[topCardId].l).toBe('p1-hand');
         });
 
         it('山札のサイズが1減る', () => {
             const { result } = renderHook(() => useGameState());
-            const initialLen = result.current.gameState.p1.d.length;
+            const initialLen = result.current.gameState.d.p1.length;
 
             act(() => { result.current.drawCard('p1'); });
 
-            expect(result.current.gameState.p1.d.length).toBe(initialLen - 1);
+            expect(result.current.gameState.d.p1.length).toBe(initialLen - 1);
         });
 
         it('引いたカードは表向きになる', () => {
             const { result } = renderHook(() => useGameState());
-            const topCardId = result.current.gameState.p1.d[result.current.gameState.p1.d.length - 1];
+            const topCardId = result.current.gameState.d.p1[result.current.gameState.d.p1.length - 1];
 
             act(() => { result.current.drawCard('p1'); });
 
-            expect(result.current.gameState.p1.c[topCardId].f).toBe(true);
+            expect(result.current.gameState.c[topCardId].f).toBe(true);
         });
     });
 
@@ -288,11 +289,11 @@ describe('useGameState hook', () => {
     describe('shuffleDeck', () => {
         it('シャッフル後も山札のサイズが変わらない', () => {
             const { result } = renderHook(() => useGameState());
-            const initialLen = result.current.gameState.p1.d.length;
+            const initialLen = result.current.gameState.d.p1.length;
 
             act(() => { result.current.shuffleDeck('p1'); });
 
-            expect(result.current.gameState.p1.d.length).toBe(initialLen);
+            expect(result.current.gameState.d.p1.length).toBe(initialLen);
         });
 
         it('シャッフル後、各カードのo値がdeck配列のインデックスと一致する', () => {
@@ -300,7 +301,8 @@ describe('useGameState hook', () => {
 
             act(() => { result.current.shuffleDeck('p1'); });
 
-            const { d, c } = result.current.gameState.p1;
+            const d = result.current.gameState.d.p1;
+            const c = result.current.gameState.c;
             d.forEach((id, index) => {
                 expect(c[id].o).toBe(index);
             });
@@ -315,7 +317,7 @@ describe('useGameState hook', () => {
 
             act(() => { result.current.returnToDeck(card.id, false); });
 
-            const deck = result.current.gameState.p1.d;
+            const deck = result.current.gameState.d.p1;
             expect(deck[deck.length - 1]).toBe(card.id);
         });
 
@@ -325,7 +327,7 @@ describe('useGameState hook', () => {
 
             act(() => { result.current.returnToDeck(card.id, true); });
 
-            expect(result.current.gameState.p1.d[0]).toBe(card.id);
+            expect(result.current.gameState.d.p1[0]).toBe(card.id);
         });
 
         it('f=falseになり状態異常がクリアされる', () => {
@@ -337,7 +339,7 @@ describe('useGameState hook', () => {
             });
             act(() => { result.current.returnToDeck(card.id); });
 
-            const returned = result.current.gameState.p1.c[card.id];
+            const returned = result.current.gameState.c[card.id];
             expect(returned.f).toBe(false);
             expect(returned.cnd).toEqual([]);
         });
@@ -442,9 +444,9 @@ describe('useGameState hook', () => {
             act(() => { result.current.moveCard(third.id, 'p1-hand', 'p1-active'); });
 
             // 旧activeはthirdの元の場所（p1-hand）へ
-            expect(result.current.gameState.p1.c[first.id].l).toBe('p1-hand');
+            expect(result.current.gameState.c[first.id].l).toBe('p1-hand');
             // 旧activeの付属カード（second）も一緒にp1-handへ
-            expect(result.current.gameState.p1.c[second.id].l).toBe('p1-hand');
+            expect(result.current.gameState.c[second.id].l).toBe('p1-hand');
         });
 
         it('targetIndex を指定するとその order になる', () => {
@@ -453,16 +455,16 @@ describe('useGameState hook', () => {
 
             act(() => { result.current.moveCard(hand.id, 'p1-hand', 'p1-bench', 5); });
 
-            expect(result.current.gameState.p1.c[hand.id].o).toBe(5);
+            expect(result.current.gameState.c[hand.id].o).toBe(5);
         });
 
         it('p2のカードも正しく移動できる', () => {
             const { result } = renderHook(() => useGameState());
-            const p2Hand = Object.values(result.current.gameState.p2.c).find(c => c.l === 'p2-hand')!;
+            const p2Hand = Object.values(result.current.gameState.c).find(c => c.l === 'p2-hand')!;
 
             act(() => { result.current.moveCard(p2Hand.id, 'p2-hand', 'p2-bench'); });
 
-            expect(result.current.gameState.p2.c[p2Hand.id].l).toBe('p2-bench');
+            expect(result.current.gameState.c[p2Hand.id].l).toBe('p2-bench');
         });
 
         it('存在しないcardIdの場合は状態が変わらない', () => {
@@ -484,7 +486,7 @@ describe('useGameState hook', () => {
             act(() => { result.current.returnAllHandToDeck('p1'); });
 
             handIds.forEach(id => {
-                expect(result.current.gameState.p1.c[id].l).toBe('p1-deck');
+                expect(result.current.gameState.c[id].l).toBe('p1-deck');
             });
         });
 
@@ -505,7 +507,7 @@ describe('useGameState hook', () => {
             });
             act(() => { result.current.returnAllHandToDeck('p1'); });
 
-            const returned = result.current.gameState.p1.c[card.id];
+            const returned = result.current.gameState.c[card.id];
             expect(returned.f).toBe(false);
             expect(returned.d).toBe(0);
             expect(returned.cnd).toEqual([]);
@@ -517,9 +519,9 @@ describe('useGameState hook', () => {
 describe('pure functions (apply*)', () => {
     const getState = () => createInitialState();
     const getP1Card = (state: ReturnType<typeof createInitialState>, loc: string) =>
-        Object.values(state.p1.c).find(c => c.l === loc)!;
+        Object.values(state.c).find(c => c.l === loc)!;
     const getP1Cards = (state: ReturnType<typeof createInitialState>, loc: string) =>
-        Object.values(state.p1.c).filter(c => c.l === loc);
+        Object.values(state.c).filter(c => c.l === loc);
 
     describe('applyMoveCard', () => {
         it('カードを移動し新しいstateを返す（元のstateは不変）', () => {
@@ -528,8 +530,8 @@ describe('pure functions (apply*)', () => {
             const next = applyMoveCard(state, card.id, 'p1-hand', 'p1-bench');
 
             expect(next).not.toBe(state);
-            expect(next.p1.c[card.id].l).toBe('p1-bench');
-            expect(state.p1.c[card.id].l).toBe('p1-hand'); // 元は不変
+            expect(next.c[card.id].l).toBe('p1-bench');
+            expect(state.c[card.id].l).toBe('p1-hand'); // 元は不変
         });
 
         it('存在しないcardIdでは同じstateを返す', () => {
@@ -546,9 +548,9 @@ describe('pure functions (apply*)', () => {
             const withActive = applyMoveCard(state, first.id, 'p1-hand', 'p1-active');
             const next = applyAttachCard(withActive, second.id, first.id);
 
-            expect(next.p1.c[second.id].att).toBe(first.id);
-            expect(next.p1.c[second.id].l).toBe('p1-active');
-            expect(state.p1.c[second.id].att).toBeUndefined(); // 元は不変
+            expect(next.c[second.id].att).toBe(first.id);
+            expect(next.c[second.id].l).toBe('p1-active');
+            expect(state.c[second.id].att).toBeUndefined(); // 元は不変
         });
     });
 
@@ -560,8 +562,8 @@ describe('pure functions (apply*)', () => {
             const attached = applyAttachCard(withActive, second.id, first.id);
             const next = applyDetachCard(attached, second.id, 'p1-hand');
 
-            expect(next.p1.c[second.id].att).toBeUndefined();
-            expect(next.p1.c[second.id].l).toBe('p1-hand');
+            expect(next.c[second.id].att).toBeUndefined();
+            expect(next.c[second.id].l).toBe('p1-hand');
         });
     });
 
@@ -573,10 +575,10 @@ describe('pure functions (apply*)', () => {
             const attached = applyAttachCard(withActive, second.id, first.id);
             const next = applyTrashWithAttachments(attached, first.id);
 
-            expect(next.p1.c[first.id].l).toBe('p1-trash');
-            expect(next.p1.c[second.id].l).toBe('p1-trash');
-            expect(next.p1.c[first.id].d).toBe(0);
-            expect(next.p1.c[first.id].cnd).toEqual([]);
+            expect(next.c[first.id].l).toBe('p1-trash');
+            expect(next.c[second.id].l).toBe('p1-trash');
+            expect(next.c[first.id].d).toBe(0);
+            expect(next.c[first.id].cnd).toEqual([]);
         });
     });
 
@@ -586,19 +588,19 @@ describe('pure functions (apply*)', () => {
             const card = getP1Card(state, 'p1-hand');
             const next = applyUpdateCardStatus(state, card.id, c => ({ ...c, d: 60 }));
 
-            expect(next.p1.c[card.id].d).toBe(60);
-            expect(state.p1.c[card.id].d).toBe(0); // 元は不変
+            expect(next.c[card.id].d).toBe(60);
+            expect(state.c[card.id].d).toBe(0); // 元は不変
         });
     });
 
     describe('applyDrawCard', () => {
         it('山札の一番上のカードを手札に加える', () => {
             const state = getState();
-            const topCardId = state.p1.d[state.p1.d.length - 1];
+            const topCardId = state.d.p1[state.d.p1.length - 1];
             const next = applyDrawCard(state, 'p1');
 
-            expect(next.p1.c[topCardId].l).toBe('p1-hand');
-            expect(next.p1.d.length).toBe(state.p1.d.length - 1);
+            expect(next.c[topCardId].l).toBe('p1-hand');
+            expect(next.d.p1.length).toBe(state.d.p1.length - 1);
         });
     });
 
@@ -606,7 +608,7 @@ describe('pure functions (apply*)', () => {
         it('シャッフル後も山札のサイズが変わらない', () => {
             const state = getState();
             const next = applyShuffleDeck(state, 'p1');
-            expect(next.p1.d.length).toBe(state.p1.d.length);
+            expect(next.d.p1.length).toBe(state.d.p1.length);
         });
     });
 
@@ -616,9 +618,9 @@ describe('pure functions (apply*)', () => {
             const card = getP1Card(state, 'p1-hand');
             const next = applyReturnToDeck(state, card.id, false);
 
-            expect(next.p1.c[card.id].l).toBe('p1-deck');
-            expect(next.p1.c[card.id].f).toBe(false);
-            expect(next.p1.d[next.p1.d.length - 1]).toBe(card.id);
+            expect(next.c[card.id].l).toBe('p1-deck');
+            expect(next.c[card.id].f).toBe(false);
+            expect(next.d.p1[next.d.p1.length - 1]).toBe(card.id);
         });
     });
 
@@ -629,9 +631,9 @@ describe('pure functions (apply*)', () => {
             const next = applyReturnAllHandToDeck(state, 'p1');
 
             handCards.forEach(c => {
-                expect(next.p1.c[c.id].l).toBe('p1-deck');
+                expect(next.c[c.id].l).toBe('p1-deck');
             });
-            const nextHand = Object.values(next.p1.c).filter(c => c.l === 'p1-hand');
+            const nextHand = Object.values(next.c).filter(c => c.l === 'p1-hand');
             expect(nextHand.length).toBe(0);
         });
     });

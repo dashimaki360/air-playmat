@@ -1,11 +1,10 @@
 import { CardStack } from './CardStack';
 import type { Card as CardType, AreaId, CardInfo } from '../types/game';
-import type { PlayerState } from '../types/game';
 
 type OpponentAreaProps = {
     playerId?: string; // 'p1' | 'p2' — デフォルト 'p2'
     dndPlayerId?: string; // DnD用 'player-1' | 'player-2' — デフォルト 'player-2'
-    opponent: PlayerState;
+    opponentName: string;
     getCardsByLocation: (loc: string) => CardType[];
     getAttachedCards: (cardId: string) => CardType[];
     cardLookup?: Map<string, CardInfo>;
@@ -14,7 +13,7 @@ type OpponentAreaProps = {
 export function OpponentArea({
     playerId: pid = 'p2',
     dndPlayerId: dndPid = 'player-2',
-    opponent,
+    opponentName,
     getCardsByLocation,
     getAttachedCards,
     cardLookup,
@@ -40,7 +39,7 @@ export function OpponentArea({
     return (
         <div className="flex flex-col gap-4 p-4 rounded-xl border border-red-900/50 bg-red-950/20">
             <div className="text-red-400 font-bold mb-2 text-center border-b border-red-900/50 pb-2">
-                {opponent.n}
+                {opponentName}
             </div>
 
             {/* Opponent Hand (Hidden usually, roughly showing count) */}

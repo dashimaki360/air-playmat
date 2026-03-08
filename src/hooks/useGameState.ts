@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { GameState, Card, CardType, PlayerState, CardInfo } from '../types/game';
+import type { GameState, Card, CardType, CardInfo } from '../types/game';
 
 import defaultDeck from '../data/defaultDeck.json';
 
@@ -67,27 +67,27 @@ const findRootCardId = (card: Card, cards: Record<string, Card>): string => {
 export const normalizePlayerId = (playerId: string): 'p1' | 'p2' =>
     playerId === 'p1' || playerId === 'player-1' ? 'p1' : 'p2';
 
-// カードが属するプレイヤーを特定
-const findCardOwner = (state: GameState, cardId: string): 'p1' | 'p2' | null =>
-    state.p2.c[cardId] ? 'p2' : state.p1.c[cardId] ? 'p1' : null;
+// カードIDからプレイヤーを特定（l フィールドの先頭で判定）
+const findCardOwner = (state: GameState, cardId: string): 'p1' | 'p2' | null => {
+    const card = state.c[cardId];
+    if (!card) return null;
+    if (card.l.startsWith('p2')) return 'p2';
+    if (card.l.startsWith('p1')) return 'p1';
+    // stadium 等の共有エリアの場合は cardId の prefix で判定
+    if (cardId.startsWith('p2')) return 'p2';
+    return 'p1';
+};
 
 // ── 純粋関数: クエリ ──────────────────────────────────────────
 
 export function queryCardsByLocation(state: GameState, loc: string): Card[] {
-    const allCards = [
-        ...Object.values(state.p1.c),
-        ...Object.values(state.p2.c)
-    ];
-    return allCards
+    return Object.values(state.c)
         .filter(c => c.l === loc && !c.att)
         .sort((a, b) => a.o - b.o);
 }
 
 export function queryAttachedCards(state: GameState, cardId: string): Card[] {
-    const allCards = [
-        ...Object.values(state.p1.c),
-        ...Object.values(state.p2.c)
-    ];
+    const allCards = Object.values(state.c);
     const result: Card[] = [];
     const collectAttached = (targetId: string) => {
         const attached = allCards.filter(c => c.att === targetId);
@@ -109,12 +109,11 @@ export function applyMoveCard(
     targetLoc: string,
     targetIndex?: number
 ): GameState {
-    const pPlayer = findCardOwner(state, cardId);
-    if (!pPlayer) return state;
+    const cardToMove = state.c[cardId];
+    if (!cardToMove) return state;
 
-    const oldPlayer = state[pPlayer];
-    const cardToMove = oldPlayer.c[cardId];
-    const newCards = { ...oldPlayer.c };
+    const pPlayer = findCardOwner(state, cardId)!;
+    const newCards = { ...state.c };
 
     // スワップロジック（Activeに既にカードがある場合、元の場所に押し戻す）
     if (targetLoc.includes('-active')) {
@@ -143,7 +142,6 @@ export function applyMoveCard(
     };
 
     // 付属カード（エネルギー・道具・進化）も一緒に移動
-    // トラッシュ・山札・手札に移動する場合はスタックを解消（att をクリア）
     const shouldBreakStack = targetLoc.includes('-trash') || targetLoc.includes('-deck') || targetLoc.includes('-hand');
     const allAttached = collectAllAttached(cardId, newCards);
     allAttached.forEach(ac => {
@@ -156,17 +154,22 @@ export function applyMoveCard(
         };
     });
 
-    // 山札配列の調整（付属カードも含む）
-    let newDeck = sourceLoc.includes('-deck')
-        ? oldPlayer.d.filter(id => id !== cardId)
-        : [...oldPlayer.d];
-    if (targetLoc.includes('-deck')) {
-        newDeck = [...newDeck, cardId, ...allAttached.map(ac => ac.id)];
+    // 山札配列の調整
+    const newD = { ...state.d };
+    const playerDeck = [...newD[pPlayer]];
+    if (sourceLoc.includes('-deck')) {
+        const idx = playerDeck.indexOf(cardId);
+        if (idx !== -1) playerDeck.splice(idx, 1);
     }
+    if (targetLoc.includes('-deck')) {
+        playerDeck.push(cardId, ...allAttached.map(ac => ac.id));
+    }
+    newD[pPlayer] = playerDeck;
 
     return {
         ...state,
-        [pPlayer]: { ...oldPlayer, c: newCards, d: newDeck },
+        c: newCards,
+        d: newD,
         m: { ...state.m, a: `${pPlayer}-move-${cardId}` },
     };
 }
@@ -176,28 +179,23 @@ export function applyAttachCard(
     cardId: string,
     targetCardId: string
 ): GameState {
-    const pPlayer = findCardOwner(state, cardId);
-    if (!pPlayer) return state;
-
-    const oldPlayer = state[pPlayer];
-    const cardToAttach = oldPlayer.c[cardId];
-    const targetCard = oldPlayer.c[targetCardId];
+    const cardToAttach = state.c[cardId];
+    const targetCard = state.c[targetCardId];
     if (!cardToAttach || !targetCard) return state;
 
-    const newDeck = cardToAttach.l.includes('-deck')
-        ? oldPlayer.d.filter(id => id !== cardId)
-        : [...oldPlayer.d];
+    const pPlayer = findCardOwner(state, cardId)!;
+    const newD = { ...state.d };
+    if (cardToAttach.l.includes('-deck')) {
+        newD[pPlayer] = newD[pPlayer].filter(id => id !== cardId);
+    }
 
     return {
         ...state,
-        [pPlayer]: {
-            ...oldPlayer,
-            d: newDeck,
-            c: {
-                ...oldPlayer.c,
-                [cardId]: { ...cardToAttach, att: targetCardId, l: targetCard.l, f: true },
-            },
+        c: {
+            ...state.c,
+            [cardId]: { ...cardToAttach, att: targetCardId, l: targetCard.l, f: true },
         },
+        d: newD,
         m: { ...state.m, a: `${pPlayer}-attach-${cardId}-to-${targetCardId}` },
     };
 }
@@ -207,35 +205,30 @@ export function applyDetachCard(
     cardId: string,
     targetLoc: string
 ): GameState {
-    const pPlayer = findCardOwner(state, cardId);
-    if (!pPlayer) return state;
-
-    const oldPlayer = state[pPlayer];
-    const card = oldPlayer.c[cardId];
+    const card = state.c[cardId];
     if (!card) return state;
 
-    const newOrder = Object.values(oldPlayer.c).filter(c => c.l === targetLoc && !c.att).length;
-    const newDeck = targetLoc.includes('-deck')
-        ? [...oldPlayer.d, cardId]
-        : [...oldPlayer.d];
+    const pPlayer = findCardOwner(state, cardId)!;
+    const newOrder = Object.values(state.c).filter(c => c.l === targetLoc && !c.att).length;
+    const newD = { ...state.d };
+    if (targetLoc.includes('-deck')) {
+        newD[pPlayer] = [...newD[pPlayer], cardId];
+    }
 
     return {
         ...state,
-        [pPlayer]: {
-            ...oldPlayer,
-            d: newDeck,
-            c: {
-                ...oldPlayer.c,
-                [cardId]: {
-                    ...card,
-                    att: undefined,
-                    l: targetLoc,
-                    o: newOrder,
-                    ...(targetLoc.includes('-deck') && { f: false }),
-                    ...(targetLoc.includes('-hand') && { f: true }),
-                },
+        c: {
+            ...state.c,
+            [cardId]: {
+                ...card,
+                att: undefined,
+                l: targetLoc,
+                o: newOrder,
+                ...(targetLoc.includes('-deck') && { f: false }),
+                ...(targetLoc.includes('-hand') && { f: true }),
             },
         },
+        d: newD,
         m: { ...state.m, a: `${pPlayer}-detach-${cardId}` },
     };
 }
@@ -244,16 +237,16 @@ export function applyTrashWithAttachments(
     state: GameState,
     cardId: string
 ): GameState {
-    const pPlayer = findCardOwner(state, cardId);
-    if (!pPlayer) return state;
+    const card = state.c[cardId];
+    if (!card) return state;
 
-    const oldPlayer = state[pPlayer];
+    const pPlayer = findCardOwner(state, cardId)!;
     const trashLoc = `${pPlayer}-trash`;
-    const allAttached = collectAllAttached(cardId, oldPlayer.c);
+    const allAttached = collectAllAttached(cardId, state.c);
     const allCardIds = [cardId, ...allAttached.map(c => c.id)];
-    const trashOffset = Object.values(oldPlayer.c).filter(c => c.l === trashLoc).length;
+    const trashOffset = Object.values(state.c).filter(c => c.l === trashLoc).length;
 
-    const newCards = { ...oldPlayer.c };
+    const newCards = { ...state.c };
     allCardIds.forEach((id, i) => {
         if (newCards[id]) {
             newCards[id] = {
@@ -268,13 +261,13 @@ export function applyTrashWithAttachments(
         }
     });
 
+    const newD = { ...state.d };
+    newD[pPlayer] = newD[pPlayer].filter(id => !allCardIds.includes(id));
+
     return {
         ...state,
-        [pPlayer]: {
-            ...oldPlayer,
-            d: oldPlayer.d.filter(id => !allCardIds.includes(id)),
-            c: newCards,
-        },
+        c: newCards,
+        d: newD,
         m: { ...state.m, a: `${pPlayer}-trash-${cardId}-with-attachments` },
     };
 }
@@ -284,16 +277,12 @@ export function applyUpdateCardStatus(
     cardId: string,
     updater: (c: Card) => Card
 ): GameState {
-    const pPlayer = findCardOwner(state, cardId);
-    if (!pPlayer) return state;
+    const card = state.c[cardId];
+    if (!card) return state;
 
-    const oldPlayer = state[pPlayer];
     return {
         ...state,
-        [pPlayer]: {
-            ...oldPlayer,
-            c: { ...oldPlayer.c, [cardId]: updater(oldPlayer.c[cardId]) },
-        },
+        c: { ...state.c, [cardId]: updater(card) },
     };
 }
 
@@ -302,26 +291,23 @@ export function applyDrawCard(
     playerId: string
 ): GameState {
     const pPlayer = normalizePlayerId(playerId);
-    const oldPlayer = state[pPlayer];
-    if (oldPlayer.d.length === 0) return state;
+    const deck = state.d[pPlayer];
+    if (deck.length === 0) return state;
 
-    const newDeck = [...oldPlayer.d];
+    const newDeck = [...deck];
     const topCardId = newDeck.pop()!;
-    const cardToDraw = oldPlayer.c[topCardId];
+    const cardToDraw = state.c[topCardId];
     if (!cardToDraw) return state;
 
-    const handSize = Object.values(oldPlayer.c).filter(c => c.l === `${pPlayer}-hand`).length;
+    const handSize = Object.values(state.c).filter(c => c.l === `${pPlayer}-hand`).length;
 
     return {
         ...state,
-        [pPlayer]: {
-            ...oldPlayer,
-            d: newDeck,
-            c: {
-                ...oldPlayer.c,
-                [topCardId]: { ...cardToDraw, l: `${pPlayer}-hand`, o: handSize, f: true },
-            },
+        c: {
+            ...state.c,
+            [topCardId]: { ...cardToDraw, l: `${pPlayer}-hand`, o: handSize, f: true },
         },
+        d: { ...state.d, [pPlayer]: newDeck },
         m: { ...state.m, a: `${pPlayer}-draw-${topCardId}` },
     };
 }
@@ -331,18 +317,19 @@ export function applyShuffleDeck(
     playerId: string
 ): GameState {
     const pPlayer = normalizePlayerId(playerId);
-    const oldPlayer = state[pPlayer];
-    if (oldPlayer.d.length === 0) return state;
+    const deck = state.d[pPlayer];
+    if (deck.length === 0) return state;
 
-    const newDeck = shuffle(oldPlayer.d);
-    const newCards = { ...oldPlayer.c };
+    const newDeck = shuffle(deck);
+    const newCards = { ...state.c };
     newDeck.forEach((cardId, index) => {
         if (newCards[cardId]) newCards[cardId] = { ...newCards[cardId], o: index };
     });
 
     return {
         ...state,
-        [pPlayer]: { ...oldPlayer, d: newDeck, c: newCards },
+        c: newCards,
+        d: { ...state.d, [pPlayer]: newDeck },
         m: { ...state.m, a: `${pPlayer}-shuffle-deck` },
     };
 }
@@ -353,25 +340,24 @@ export function applyReturnToDeck(
     bottom: boolean = false,
     shuffleAfter: boolean = false
 ): GameState {
-    const pPlayer = findCardOwner(state, cardId);
-    if (!pPlayer) return state;
-
-    const oldPlayer = state[pPlayer];
-    const cardToReturn = oldPlayer.c[cardId];
+    const cardToReturn = state.c[cardId];
     if (!cardToReturn) return state;
 
-    // bottom=true → 山札の一番下（配列先頭）、false → 一番上（配列末尾）
-    let newDeck = bottom ? [cardId, ...oldPlayer.d] : [...oldPlayer.d, cardId];
+    const pPlayer = findCardOwner(state, cardId)!;
+    const oldDeck = state.d[pPlayer];
+
+    let newDeck = bottom ? [cardId, ...oldDeck] : [...oldDeck, cardId];
     if (shuffleAfter) newDeck = shuffle(newDeck);
 
-    const newCards = { ...oldPlayer.c, [cardId]: { ...cardToReturn, l: `${pPlayer}-deck`, f: false, cnd: [] } };
+    const newCards = { ...state.c, [cardId]: { ...cardToReturn, l: `${pPlayer}-deck`, f: false, cnd: [] } };
     newDeck.forEach((id, index) => {
         if (newCards[id]) newCards[id] = { ...newCards[id], o: index };
     });
 
     return {
         ...state,
-        [pPlayer]: { ...oldPlayer, d: newDeck, c: newCards },
+        c: newCards,
+        d: { ...state.d, [pPlayer]: newDeck },
         m: { ...state.m, a: `${pPlayer}-return-deck-${cardId}` },
     };
 }
@@ -383,18 +369,17 @@ export function applyReturnAllHandToDeck(
     shuffleAfter: boolean = false
 ): GameState {
     const pPlayer = normalizePlayerId(playerId);
-    const oldPlayer = state[pPlayer];
     const handLoc = `${pPlayer}-hand`;
-    const handCardIds = Object.keys(oldPlayer.c).filter(id => oldPlayer.c[id].l === handLoc);
+    const handCardIds = Object.keys(state.c).filter(id => state.c[id].l === handLoc);
     if (handCardIds.length === 0) return state;
 
-    // bottom=true → 手札を配列先頭（山札の下）へ、false → 配列末尾（山札の上）へ
+    const oldDeck = state.d[pPlayer];
     let newDeck = bottom
-        ? [...handCardIds, ...oldPlayer.d]
-        : [...oldPlayer.d, ...handCardIds];
+        ? [...handCardIds, ...oldDeck]
+        : [...oldDeck, ...handCardIds];
     if (shuffleAfter) newDeck = shuffle(newDeck);
 
-    const newCards = { ...oldPlayer.c };
+    const newCards = { ...state.c };
     handCardIds.forEach(id => {
         newCards[id] = { ...newCards[id], l: `${pPlayer}-deck`, f: false, d: 0, cnd: [] };
     });
@@ -404,7 +389,8 @@ export function applyReturnAllHandToDeck(
 
     return {
         ...state,
-        [pPlayer]: { ...oldPlayer, d: newDeck, c: newCards },
+        c: newCards,
+        d: { ...state.d, [pPlayer]: newDeck },
         m: { ...state.m, a: `${pPlayer}-return-all-hand` },
     };
 }
@@ -420,37 +406,27 @@ const createFlatDeck = (idPrefix: string, deckCards?: CardInfo[]): Card[] => {
             flatCards.push(createCardInstance('', ci.id, '', 0, CARD_TYPE_MAP[ci.type || '']));
         }
     });
-    // Shuffle the deck initially
     flatCards = shuffle(flatCards);
 
-    // Assign IDs and final metadata
     return flatCards.map((c, i) => ({
         ...c,
         id: `${idPrefix}-${i + 1}`,
     }));
 };
 
-export const generateInitialPlayer = (playerPrefix: string, playerName: string, deckCards?: CardInfo[]): PlayerState => {
-    const p: PlayerState = {
-        n: playerName,
-        d: [],
-        c: {},
-    };
-
-    const add = (c: Card) => { p.c[c.id] = c; };
+// プレイヤー1人分のカードとデッキ配列を生成
+const generatePlayerCards = (playerPrefix: string, deckCards?: CardInfo[]): { cards: Record<string, Card>; deck: string[] } => {
+    const cards: Record<string, Card> = {};
+    const deck: string[] = [];
 
     const allCards = createFlatDeck(playerPrefix, deckCards);
-
-    // Distribute 60 cards
-    // Hand: 7, Prize: 6, Deck: 47 (activeは手札から選んで配置)
-
     let currentIdx = 0;
 
     // Hand (7)
     for (let i = 0; i < 7; i++) {
         if (currentIdx < allCards.length) {
             const c = allCards[currentIdx++];
-            add({ ...c, l: `${playerPrefix}-hand`, o: i, f: true });
+            cards[c.id] = { ...c, l: `${playerPrefix}-hand`, o: i, f: true };
         }
     }
 
@@ -458,31 +434,38 @@ export const generateInitialPlayer = (playerPrefix: string, playerName: string, 
     for (let i = 0; i < 6; i++) {
         if (currentIdx < allCards.length) {
             const c = allCards[currentIdx++];
-            add({ ...c, l: `${playerPrefix}-prize`, o: i, f: false });
+            cards[c.id] = { ...c, l: `${playerPrefix}-prize`, o: i, f: false };
         }
     }
 
     // Deck (remaining)
     let deckOrder = 0;
-    while(currentIdx < allCards.length) {
+    while (currentIdx < allCards.length) {
         const c = allCards[currentIdx++];
-        p.d.push(c.id);
-        add({ ...c, l: `${playerPrefix}-deck`, o: deckOrder++, f: false });
+        deck.push(c.id);
+        cards[c.id] = { ...c, l: `${playerPrefix}-deck`, o: deckOrder++, f: false };
     }
 
-    return p;
+    return { cards, deck };
 };
 
-export const createInitialState = (deckCards?: CardInfo[]): GameState => ({
-    roomId: 'mock-room-1',
-    m: {
-        t: 'p1',
-        s: 'playing',
-        a: '',
-    },
-    p1: generateInitialPlayer('p1', 'Player 1', deckCards),
-    p2: generateInitialPlayer('p2', 'Player 2 (Opponent)', deckCards),
-});
+export const createInitialState = (deckCards?: CardInfo[], p1Name = 'Player 1', p2Name = 'Player 2 (Opponent)', p2DeckCards?: CardInfo[]): GameState => {
+    const p1 = generatePlayerCards('p1', deckCards);
+    const p2 = generatePlayerCards('p2', p2DeckCards || deckCards);
+
+    return {
+        roomId: 'mock-room-1',
+        m: {
+            t: 'p1',
+            s: 'playing',
+            a: '',
+            p1n: p1Name,
+            p2n: p2Name,
+        },
+        c: { ...p1.cards, ...p2.cards },
+        d: { p1: p1.deck, p2: p2.deck },
+    };
+};
 
 // ── React Hook ────────────────────────────────────────────────
 

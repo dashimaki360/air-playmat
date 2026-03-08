@@ -76,8 +76,8 @@ export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onR
         prizeToHand: handlePrizeToHand,
     }, showDeckModal || showTrashModal);
 
-    const myPlayer = gameState[myId];
-    if (!myPlayer) return <div className="text-white">Loading...</div>;
+    // フラット構造: gameState.c に全カードが統合されている
+    if (!gameState.c) return <div className="text-white">Loading...</div>;
 
     return (
         <DndContext
@@ -102,16 +102,14 @@ export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onR
                 </div>
 
                 {/* Opponent Area */}
-                {gameState[opponentId] && (
-                    <OpponentArea
-                        playerId={opponentId}
-                        dndPlayerId={opponentDndId}
-                        opponent={gameState[opponentId]}
-                        getCardsByLocation={getCardsByLocation}
-                        getAttachedCards={getAttachedCards}
-                        cardLookup={cardLookup}
-                    />
-                )}
+                <OpponentArea
+                    playerId={opponentId}
+                    dndPlayerId={opponentDndId}
+                    opponentName={opponentId === 'p1' ? gameState.m.p1n : gameState.m.p2n}
+                    getCardsByLocation={getCardsByLocation}
+                    getAttachedCards={getAttachedCards}
+                    cardLookup={cardLookup}
+                />
 
                 {/* My Player Area */}
                 <PlayerArea

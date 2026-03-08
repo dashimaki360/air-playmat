@@ -24,21 +24,20 @@ export type Card = {
   tp?: CardType; // カードの種類（Firebase通信量削減のため短縮）
 };
 
-export type PlayerState = {
-  n: string; // プレイヤー名 (旧 name)
-  d: string[]; // deck (カードIDの配列)
-  c: Record<string, Card>; // cards (フィールドや手札にあるカード)
-};
-
 export type GameState = {
   roomId: string;
   m: { // meta
     t: string; // turn: 現在のターンプレイヤー (e.g. "p1")
     s: string; // status: 試合状況
     a: string; // lastAction: 直近のアクションログ
+    p1n: string; // Player 1 name
+    p2n: string; // Player 2 name
   };
-  p1: PlayerState;
-  p2: PlayerState;
+  c: Record<string, Card>; // 全カード（p1, p2 両方）を統合
+  d: { // デッキ配列（カードIDの順序リスト）
+    p1: string[];
+    p2: string[];
+  };
 };
 
 // デッキインポート用の型

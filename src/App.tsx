@@ -5,7 +5,7 @@ import { DeckManager } from './components/DeckManager';
 import { useDeckManager } from './hooks/useDeckManager';
 import { useRoom } from './hooks/useRoom';
 import { useFirebaseSync } from './hooks/useFirebaseSync';
-import { generateInitialPlayer } from './hooks/useGameState';
+import { createInitialState } from './hooks/useGameState';
 import type { GameState } from './types/game';
 import type { PlayerId } from './types/room';
 
@@ -65,14 +65,14 @@ function App() {
   const handleStartGame = useCallback(async () => {
     if (!roomState.roomData?.p2?.deckCards || !selectedDeck) return;
 
-    const p1State = generateInitialPlayer('p1', roomState.roomData.p1.n, selectedDeck.cards);
-    const p2State = generateInitialPlayer('p2', roomState.roomData.p2.n, roomState.roomData.p2.deckCards);
-
-    const initialState: GameState = {
+    const initialState = {
+      ...createInitialState(
+        selectedDeck.cards,
+        roomState.roomData.p1.n,
+        roomState.roomData.p2.n,
+        roomState.roomData.p2.deckCards,
+      ),
       roomId: roomState.roomId!,
-      m: { t: 'p1', s: 'playing', a: '' },
-      p1: p1State,
-      p2: p2State,
     };
 
     await firebaseSync.writeInitialState(initialState);
