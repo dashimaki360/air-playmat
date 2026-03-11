@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ref, set, get, onValue, update, onDisconnect, off } from 'firebase/database';
+import { ref, set, get, onValue, update, onDisconnect, off, remove } from 'firebase/database';
 import { db } from '../lib/firebase';
 import type { PlayerId, RoomMeta, RoomPlayerInfo, RoomData } from '../types/room';
 import type { CardInfo } from '../types/game';
@@ -13,6 +13,19 @@ export type RoomState = {
 };
 
 const ROOM_PATH = (roomId: string) => `rooms/${roomId}`;
+
+// 両プレイヤーが切断済みのルームを削除する
+async function tryCleanupRoom(roomId: string): Promise<void> {
+    const roomRef = ref(db, ROOM_PATH(roomId));
+    const snapshot = await get(roomRef);
+    if (!snapshot.exists()) return;
+
+    const data = snapshot.val() as RoomData;
+    if (!data.meta.p1Connected && !data.meta.p2Connected) {
+        await remove(roomRef);
+    }
+}
+
 
 export function useRoom() {
     const [roomState, setRoomState] = useState<RoomState>({
@@ -32,9 +45,9 @@ export function useRoom() {
             const snapshot = await get(roomRef);
 
             if (snapshot.exists()) {
-                // 24時間以上経過したルームは上書き可能
+                // 12時間以上経過したルームは上書き可能
                 const existingMeta = snapshot.val()?.meta as RoomMeta | undefined;
-                if (existingMeta && Date.now() - existingMeta.createdAt < 24 * 60 * 60 * 1000) {
+                if (existingMeta && Date.now() - existingMeta.createdAt < 12 * 60 * 60 * 1000) {
                     setRoomState(prev => ({ ...prev, status: 'error', error: 'このルームIDは既に使用されています' }));
                     return;
                 }
@@ -163,6 +176,7 @@ export function useRoom() {
             await update(ref(db, ROOM_PATH(roomId)), {
                 [`meta/${playerId}Connected`]: false,
             });
+            await tryCleanupRoom(roomId);
         } catch {
             // 退出時のエラーは無視
         }

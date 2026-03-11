@@ -12,45 +12,62 @@ const mockCards: CardInfo[] = [
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
+// デフォルトデッキ自動読み込み用のモックを設定
+function mockAutoImport() {
+    mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ cards: mockCards }),
+    });
+}
+
 describe('useDeckManager', () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
 
-    it('初期状態が正しい', () => {
+    it('マウント時にデフォルトデッキが自動読み込みされる', async () => {
+        mockAutoImport();
         const { result } = renderHook(() => useDeckManager());
 
-        expect(result.current.decks).toEqual([]);
-        expect(result.current.selectedIndex).toBeNull();
+        await act(async () => {});
+
+        expect(result.current.decks).toHaveLength(1);
+        expect(result.current.decks[0].code).toBe('RSp2M2-ioZymR-SpXMyp');
+        expect(result.current.selectedIndex).toBe(0);
         expect(result.current.isLoading).toBe(false);
         expect(result.current.error).toBeNull();
     });
 
     it('importDeck で API からデッキをインポートできる', async () => {
+        mockAutoImport();
         mockFetch.mockResolvedValueOnce({
             ok: true,
             json: async () => ({ cards: mockCards }),
         });
 
         const { result } = renderHook(() => useDeckManager());
+        await act(async () => {});
 
         await act(async () => {
             await result.current.importDeck('test-code-123');
         });
 
-        expect(result.current.decks).toHaveLength(1);
-        expect(result.current.decks[0].code).toBe('test-code-123');
-        expect(result.current.decks[0].cards).toEqual(mockCards);
+        expect(result.current.decks).toHaveLength(2);
+        expect(result.current.decks[1].code).toBe('test-code-123');
+        expect(result.current.decks[1].cards).toEqual(mockCards);
         expect(result.current.error).toBeNull();
     });
 
     it('importDeck 中は isLoading が true になる', async () => {
+        mockAutoImport();
+
         let resolvePromise: (value: unknown) => void;
         mockFetch.mockReturnValueOnce(
             new Promise((resolve) => { resolvePromise = resolve; })
         );
 
         const { result } = renderHook(() => useDeckManager());
+        await act(async () => {});
 
         let importPromise: Promise<void>;
         act(() => {
@@ -68,6 +85,7 @@ describe('useDeckManager', () => {
     });
 
     it('API エラー時に error が設定される', async () => {
+        mockAutoImport();
         mockFetch.mockResolvedValueOnce({
             ok: false,
             status: 404,
@@ -75,101 +93,112 @@ describe('useDeckManager', () => {
         });
 
         const { result } = renderHook(() => useDeckManager());
+        await act(async () => {});
 
         await act(async () => {
             await result.current.importDeck('invalid-code');
         });
 
-        expect(result.current.decks).toHaveLength(0);
+        expect(result.current.decks).toHaveLength(1);
         expect(result.current.error).toBe('Deck not found');
     });
 
     it('ネットワークエラー時に error が設定される', async () => {
+        mockAutoImport();
         mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
         const { result } = renderHook(() => useDeckManager());
+        await act(async () => {});
 
         await act(async () => {
             await result.current.importDeck('any-code');
         });
 
-        expect(result.current.decks).toHaveLength(0);
+        expect(result.current.decks).toHaveLength(1);
         expect(result.current.error).toBe('Network error');
     });
 
     it('selectDeck でデッキを選択できる', async () => {
+        mockAutoImport();
         mockFetch.mockResolvedValueOnce({
             ok: true,
             json: async () => ({ cards: mockCards }),
         });
 
         const { result } = renderHook(() => useDeckManager());
+        await act(async () => {});
 
         await act(async () => {
             await result.current.importDeck('code-1');
         });
 
         act(() => {
-            result.current.selectDeck(0);
+            result.current.selectDeck(1);
         });
 
-        expect(result.current.selectedIndex).toBe(0);
+        expect(result.current.selectedIndex).toBe(1);
     });
 
     it('removeDeck でデッキを削除できる', async () => {
+        mockAutoImport();
         mockFetch
             .mockResolvedValueOnce({ ok: true, json: async () => ({ cards: mockCards }) })
             .mockResolvedValueOnce({ ok: true, json: async () => ({ cards: mockCards }) });
 
         const { result } = renderHook(() => useDeckManager());
+        await act(async () => {});
 
         await act(async () => {
             await result.current.importDeck('code-1');
             await result.current.importDeck('code-2');
         });
 
-        expect(result.current.decks).toHaveLength(2);
+        expect(result.current.decks).toHaveLength(3);
 
         act(() => {
-            result.current.removeDeck(0);
+            result.current.removeDeck(1);
         });
 
-        expect(result.current.decks).toHaveLength(1);
-        expect(result.current.decks[0].code).toBe('code-2');
+        expect(result.current.decks).toHaveLength(2);
+        expect(result.current.decks[1].code).toBe('code-2');
     });
 
     it('選択中のデッキを削除すると selectedIndex が null になる', async () => {
+        mockAutoImport();
         mockFetch.mockResolvedValueOnce({
             ok: true,
             json: async () => ({ cards: mockCards }),
         });
 
         const { result } = renderHook(() => useDeckManager());
+        await act(async () => {});
 
         await act(async () => {
             await result.current.importDeck('code-1');
         });
 
         act(() => {
-            result.current.selectDeck(0);
+            result.current.selectDeck(1);
         });
 
-        expect(result.current.selectedIndex).toBe(0);
+        expect(result.current.selectedIndex).toBe(1);
 
         act(() => {
-            result.current.removeDeck(0);
+            result.current.removeDeck(1);
         });
 
         expect(result.current.selectedIndex).toBeNull();
     });
 
     it('選択中より前のデッキを削除すると selectedIndex が調整される', async () => {
+        mockAutoImport();
         mockFetch
             .mockResolvedValueOnce({ ok: true, json: async () => ({ cards: mockCards }) })
             .mockResolvedValueOnce({ ok: true, json: async () => ({ cards: mockCards }) })
             .mockResolvedValueOnce({ ok: true, json: async () => ({ cards: mockCards }) });
 
         const { result } = renderHook(() => useDeckManager());
+        await act(async () => {});
 
         await act(async () => {
             await result.current.importDeck('code-1');
@@ -178,18 +207,22 @@ describe('useDeckManager', () => {
         });
 
         act(() => {
-            result.current.selectDeck(2);
+            result.current.selectDeck(3);
         });
 
         act(() => {
-            result.current.removeDeck(0);
+            result.current.removeDeck(1);
         });
 
-        expect(result.current.selectedIndex).toBe(1);
+        expect(result.current.selectedIndex).toBe(2);
     });
 
     it('空のデッキコードではインポートしない', async () => {
+        mockAutoImport();
         const { result } = renderHook(() => useDeckManager());
+        await act(async () => {});
+
+        mockFetch.mockClear();
 
         await act(async () => {
             await result.current.importDeck('');
