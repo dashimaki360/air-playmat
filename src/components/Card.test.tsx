@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { Card } from './Card';
 import type { Card as CardType, CardInfo } from '../types/game';
-import { CARD_IMAGE_BASE_URL } from '../constants';
+import { resolveCardImageUrl } from '../constants';
 
 // Mock dnd-kit since Card uses it
 vi.mock('@dnd-kit/core', () => ({
@@ -51,7 +51,7 @@ describe('Card Component', () => {
         render(<Card card={mockCardWithImage} area="active" playerId="p1" onUpdateStatus={() => {}} cardLookup={cardLookup} />);
         const img = screen.getByRole('img');
         expect(img).toBeInTheDocument();
-        expect(img).toHaveAttribute('src', CARD_IMAGE_BASE_URL + 'SV1/pikachu.jpg');
+        expect(img).toHaveAttribute('src', resolveCardImageUrl('SV1/pikachu.jpg'));
 
         // Name should not be rendered
         expect(screen.queryByText('Pikachu')).not.toBeInTheDocument();

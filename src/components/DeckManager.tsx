@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { DeckData, CardInfo } from '../types/game';
-import { CARD_IMAGE_BASE_URL } from '../constants';
+import { resolveCardImageUrl } from '../constants';
 
 type DeckManagerProps = {
     decks: DeckData[];
@@ -94,7 +94,7 @@ export function DeckManager({ decks, selectedIndex, isLoading, error, onImport, 
                                 <div className="flex items-start justify-between gap-2">
                                     {deck.cards[0] && (
                                         <img
-                                            src={CARD_IMAGE_BASE_URL + deck.cards[0].imageUrl}
+                                            src={resolveCardImageUrl(deck.cards[0].imageUrl)}
                                             alt={deck.cards[0].name}
                                             className="w-10 h-14 object-cover rounded-sm shrink-0"
                                         />
@@ -177,7 +177,7 @@ function DeckCardList({ cards }: { cards: CardInfo[] }) {
                         {grouped[type].map(card => (
                             <div key={card.id} className="flex items-center gap-2 text-xs text-slate-300 py-0.5 px-2 rounded bg-slate-800/50">
                                 <img
-                                    src={CARD_IMAGE_BASE_URL + card.imageUrl}
+                                    src={resolveCardImageUrl(card.imageUrl)}
                                     alt={card.name}
                                     className="w-8 h-11 object-cover rounded-sm shrink-0"
                                 />

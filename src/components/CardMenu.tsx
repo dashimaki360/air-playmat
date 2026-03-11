@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Minus, Skull, Flame, Moon, Zap, HelpCircle, Layers, Trash2 } from 'lucide-react';
 import type { CardStatusCondition, AreaId, Card as CardType, CardInfo } from '../types/game';
-import { CARD_IMAGE_BASE_URL } from '../constants';
+import { resolveCardImageUrl } from '../constants';
 
 interface CardMenuProps {
     area: AreaId;
@@ -110,7 +110,7 @@ export function CardMenu({
                         <div className="bg-slate-900 rounded p-2 mb-1 flex flex-col gap-1 max-h-[200px] overflow-y-auto">
                             {attachedCards.map((c) => {
                                 const info = cardLookup?.get(c.cId);
-                                const imgUrl = info?.imageUrl ? CARD_IMAGE_BASE_URL + info.imageUrl : undefined;
+                                const imgUrl = info?.imageUrl ? resolveCardImageUrl(info.imageUrl) : undefined;
                                 return (
                                 <div key={c.id} className="flex items-center justify-between gap-1 text-xs">
                                     <div className="flex items-center gap-1 min-w-0 flex-1">

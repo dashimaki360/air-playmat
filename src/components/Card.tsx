@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useDraggable } from '@dnd-kit/core';
 import type { Card as CardType, AreaId, DraggableItemData, CardStatusCondition, CardInfo } from '../types/game';
-import { CARD_IMAGE_BASE_URL } from '../constants';
+import { resolveCardImageUrl } from '../constants';
 import { CardMenu } from './CardMenu';
 import { Skull, Flame, Moon, Zap, HelpCircle } from 'lucide-react';
 
@@ -42,7 +42,7 @@ export function Card({ card, area, playerId, index, onUpdateStatus, cardLookup, 
     const cardRef = useRef<HTMLDivElement>(null);
 
     const cardInfo = cardLookup?.get(card.cId);
-    const imageUrl = cardInfo?.imageUrl ? CARD_IMAGE_BASE_URL + cardInfo.imageUrl : undefined;
+    const imageUrl = cardInfo?.imageUrl ? resolveCardImageUrl(cardInfo.imageUrl) : undefined;
     const cardName = cardInfo?.name;
 
     const draggableData: DraggableItemData = {
