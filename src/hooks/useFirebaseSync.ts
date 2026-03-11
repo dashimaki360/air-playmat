@@ -75,7 +75,7 @@ export function useFirebaseSync({ roomId, playerId, enabled, onRemoteUpdate }: U
 
         // 初回: フルステート取得 → 完了後にグラニュラーリスナーを設置
         const stateRef = ref(db, basePath);
-        const initialUnsub = onValue(stateRef, (snapshot) => {
+        onValue(stateRef, (snapshot) => {
             if (cancelled || !snapshot.exists()) return;
             const fb = snapshot.val();
             if (!fb?.m) return;
