@@ -395,6 +395,47 @@ export function applyReturnAllHandToDeck(
     };
 }
 
+export function applyResetPlayer(
+    state: GameState,
+    playerId: string
+): GameState {
+    const pPlayer = normalizePlayerId(playerId);
+
+    // 自分のカードIDを全て収集（card.id が pPlayer- で始まるもの）
+    const myCardIds = Object.keys(state.c).filter(id => id.startsWith(`${pPlayer}-`));
+
+    // シャッフルしてから配り直す
+    const shuffledIds = shuffle(myCardIds);
+    const newCards = { ...state.c };
+    let idx = 0;
+
+    // Hand (7)
+    for (let i = 0; i < 7 && idx < shuffledIds.length; i++, idx++) {
+        const id = shuffledIds[idx];
+        newCards[id] = { ...newCards[id], l: `${pPlayer}-hand`, o: i, f: true, d: 0, cnd: [], att: undefined };
+    }
+    // Prize (6)
+    for (let i = 0; i < 6 && idx < shuffledIds.length; i++, idx++) {
+        const id = shuffledIds[idx];
+        newCards[id] = { ...newCards[id], l: `${pPlayer}-prize`, o: i, f: false, d: 0, cnd: [], att: undefined };
+    }
+    // Deck (remaining)
+    const newDeck: string[] = [];
+    let deckOrder = 0;
+    while (idx < shuffledIds.length) {
+        const id = shuffledIds[idx++];
+        newDeck.push(id);
+        newCards[id] = { ...newCards[id], l: `${pPlayer}-deck`, o: deckOrder++, f: false, d: 0, cnd: [], att: undefined };
+    }
+
+    return {
+        ...state,
+        c: newCards,
+        d: { ...state.d, [pPlayer]: newDeck },
+        m: { ...state.m, a: `${pPlayer}-reset` },
+    };
+}
+
 // ── 初期化関数 ────────────────────────────────────────────────
 
 // Flatten deck data
@@ -530,5 +571,9 @@ export function useGameState(deckCards?: CardInfo[], firebaseSync?: FirebaseSync
         syncedUpdate(prev => applyReturnAllHandToDeck(prev, playerId, bottom, shuffleAfter));
     };
 
-    return { gameState, setGameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck, resetGame };
+    const resetPlayer = (playerId: string) => {
+        syncedUpdate(prev => applyResetPlayer(prev, playerId));
+    };
+
+    return { gameState, setGameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck, resetGame, resetPlayer };
 }

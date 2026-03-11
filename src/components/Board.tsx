@@ -25,7 +25,7 @@ type BoardProps = {
 };
 
 export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onRemoteUpdate }: BoardProps) {
-    const { gameState, setGameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck } = useGameState(deckCards, firebaseSync);
+    const { gameState, setGameState, getCardsByLocation, getAttachedCards, moveCard, attachCard, detachCard, trashWithAttachments, updateCardStatus, drawCard, shuffleDeck, returnToDeck, returnAllHandToDeck, resetPlayer } = useGameState(deckCards, firebaseSync);
 
     // cId → CardInfo のルックアップ Map を構築
     const cardLookup = useMemo(() => buildCardLookup(deckCards || (defaultDeck.cards as CardInfo[])), [deckCards]);
@@ -92,6 +92,17 @@ export function Board({ deckCards, perspective = 'p1', firebaseSync, roomId, onR
                         air-playmat
                     </h1>
                     <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => {
+                                if (window.confirm('自分の盤面をリセットしますか？\nすべてのカードを回収し、シャッフルして配り直します。')) {
+                                    resetPlayer(myId);
+                                    addLog(myId, 'reset', '盤面をリセットした');
+                                }
+                            }}
+                            className="text-xs bg-red-800 hover:bg-red-700 text-white px-3 py-1.5 rounded border border-red-600 transition-colors font-medium"
+                        >
+                            リセット
+                        </button>
                         <CoinToss ref={coinTossRef} onResult={(result: CoinResult) => {
                             addLog(myId, 'coin', `コイントス: ${result === 'heads' ? '表' : '裏'}`);
                         }} />

@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { useGameState, createInitialState, applyMoveCard, applyAttachCard, applyDetachCard, applyTrashWithAttachments, applyUpdateCardStatus, applyDrawCard, applyShuffleDeck, applyReturnToDeck, applyReturnAllHandToDeck, queryCardsByLocation, queryAttachedCards } from './useGameState';
+import { useGameState, createInitialState, applyMoveCard, applyAttachCard, applyDetachCard, applyTrashWithAttachments, applyUpdateCardStatus, applyDrawCard, applyShuffleDeck, applyReturnToDeck, applyReturnAllHandToDeck, applyResetPlayer, queryCardsByLocation, queryAttachedCards } from './useGameState';
 import defaultDeck from '../data/defaultDeck.json';
 
 describe('useGameState hook', () => {
@@ -657,6 +657,83 @@ describe('pure functions (apply*)', () => {
             const result = queryAttachedCards(attached, first.id);
             expect(result.length).toBe(1);
             expect(result[0].id).toBe(second.id);
+        });
+    });
+
+    // ── applyResetPlayer ────────────────────────────────────────
+    describe('applyResetPlayer', () => {
+        it('指定プレイヤーのカードが初期配置に戻る', () => {
+            const state = getState();
+            // p1のカードを色々な場所に移動させた状態を作る
+            const handCards = getP1Cards(state, 'p1-hand');
+            let modified = applyMoveCard(state, handCards[0].id, 'p1-hand', 'p1-active');
+            modified = applyMoveCard(modified, handCards[1].id, 'p1-hand', 'p1-bench');
+            modified = applyMoveCard(modified, handCards[2].id, 'p1-hand', 'p1-trash');
+
+            const result = applyResetPlayer(modified, 'p1');
+
+            const p1Cards = Object.values(result.c).filter(c => c.id.startsWith('p1-'));
+            expect(p1Cards.length).toBe(60);
+
+            const hand = p1Cards.filter(c => c.l === 'p1-hand');
+            const prize = p1Cards.filter(c => c.l === 'p1-prize');
+            const deck = p1Cards.filter(c => c.l === 'p1-deck');
+            const active = p1Cards.filter(c => c.l === 'p1-active');
+            const bench = p1Cards.filter(c => c.l === 'p1-bench');
+            const trash = p1Cards.filter(c => c.l === 'p1-trash');
+
+            expect(hand.length).toBe(7);
+            expect(prize.length).toBe(6);
+            expect(deck.length).toBe(47);
+            expect(active.length).toBe(0);
+            expect(bench.length).toBe(0);
+            expect(trash.length).toBe(0);
+
+            // 手札は表、サイドとデッキは裏
+            expect(hand.every(c => c.f === true)).toBe(true);
+            expect(prize.every(c => c.f === false)).toBe(true);
+            expect(deck.every(c => c.f === false)).toBe(true);
+
+            // ダメージ・状態異常・att がリセットされている
+            expect(p1Cards.every(c => c.d === 0)).toBe(true);
+            expect(p1Cards.every(c => c.cnd.length === 0)).toBe(true);
+            expect(p1Cards.every(c => c.att === undefined)).toBe(true);
+
+            // デッキ配列が正しい
+            expect(result.d.p1.length).toBe(47);
+        });
+
+        it('相手のカードは変更されない', () => {
+            const state = getState();
+            const p2Before = Object.values(state.c).filter(c => c.id.startsWith('p2-'));
+
+            const result = applyResetPlayer(state, 'p1');
+
+            const p2After = Object.values(result.c).filter(c => c.id.startsWith('p2-'));
+            expect(p2After.length).toBe(p2Before.length);
+            p2Before.forEach(card => {
+                const afterCard = result.c[card.id];
+                expect(afterCard.l).toBe(card.l);
+                expect(afterCard.d).toBe(card.d);
+            });
+            expect(result.d.p2).toEqual(state.d.p2);
+        });
+
+        it('付属カードが解除される', () => {
+            const state = getState();
+            const handCards = getP1Cards(state, 'p1-hand');
+            let modified = applyMoveCard(state, handCards[0].id, 'p1-hand', 'p1-active');
+            modified = applyAttachCard(modified, handCards[1].id, handCards[0].id);
+
+            const result = applyResetPlayer(modified, 'p1');
+            const p1Cards = Object.values(result.c).filter(c => c.id.startsWith('p1-'));
+            expect(p1Cards.every(c => c.att === undefined)).toBe(true);
+        });
+
+        it('アクションログが更新される', () => {
+            const state = getState();
+            const result = applyResetPlayer(state, 'p1');
+            expect(result.m.a).toBe('p1-reset');
         });
     });
 });
